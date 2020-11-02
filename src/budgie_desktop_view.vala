@@ -1,0 +1,749 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
+using Gdk;
+using Gtk;
+
+public enum DesktopItemSize {
+	SMALL = 0, // 32x32
+	NORMAL = 1, // 48x48
+	LARGE = 2, // 64x64
+	MASSIVE = 3; // 96x96
+}
+
+public class DesktopView : Gtk.ApplicationWindow {
+	Screen default_screen;
+	Display default_display;
+	Monitor primary_monitor;
+	Rectangle primary_monitor_geo;
+	int s_factor; // scale_factor but we can't name it that. Gtk.Widget has it as a field
+	Cursor? pointer_cursor = null;
+
+	DesktopItemSize? item_size; // Default our Item Size to NORMAL
+	IconTheme? icon_theme;
+	int? icon_size; // Desired icon size
+	int? max_allocated_item_height;
+	int? max_allocated_item_width;
+	bool show_home;
+	bool show_mounts;
+	bool show_trash;
+	bool visible_setting;
+
+	FlowBox flow;
+
+	File? desktop_file;
+	FileMonitor? desktop_monitor;
+	GLib.Settings? settings;
+	VolumeMonitor? volume_monitor;
+
+	HashTable<string, MountItem?>? mount_items; // All active mounts in our flowbox
+	HashTable<string, FileItem?>? file_items; // All file-related items in our flowbox
+
+	public DesktopView(Gtk.Application app) {
+		Object(
+			application: app,
+			app_paintable: true,
+			decorated: false,
+			expand: false,
+			icon_name: "user-desktop",
+			resizable: false,
+			skip_pager_hint: true,
+			skip_taskbar_hint: true,
+			startup_id: "us.getsol.budgie-desktop-view",
+			type_hint: Gdk.WindowTypeHint.DESKTOP
+		);
+
+		file_items = new HashTable<string, FileItem>(str_hash, str_equal);
+		mount_items =  new HashTable<string, MountItem>(str_hash, str_equal);
+
+		settings = new GLib.Settings("us.getsol.budgie-desktop-view"); // Get our desktop-view settings
+
+		if (settings == null) {
+			warning("Required gschema not installed.");
+			close(); // Close the window
+		}
+
+		settings.changed["icon-size"].connect(on_item_size_changed);
+		settings.changed["show"].connect(on_show_changed);
+		settings.changed["show-active-mounts"].connect(on_show_active_mounts_changed);
+		settings.changed["show-home-folder"].connect(on_show_home_folder_changed);
+		settings.changed["show-trash-folder"].connect(on_show_trash_folder_changed);
+
+		show_home = settings.get_boolean("show-home-folder");
+		show_mounts = settings.get_boolean("show-active-mounts");
+		show_trash = settings.get_boolean("show-trash-folder");
+
+		visible_setting = settings.get_boolean("show");
+
+		desktop_file = File.new_for_path(Environment.get_user_special_dir(UserDirectory.DESKTOP)); // Get the Desktop folder "file"
+
+		try {
+			desktop_monitor = desktop_file.monitor(FileMonitorFlags.WATCH_MOVES, null); // Create our file monitor
+			desktop_monitor.changed.connect(on_file_changed); // Bind to our file changed event
+		} catch (Error e) {
+			warning("Failed to obtain a monitor for file changes to the Desktop folder. Will not be able to watch for changes: %s", e.message);
+		}
+
+		volume_monitor = VolumeMonitor.get(); // Get our volume monitor
+		volume_monitor.mount_added.connect(on_mount_added);
+
+		var css = new CssProvider();
+		css.load_from_resource ("us/getsol/budgie-desktop-view/view.css");
+		StyleContext.add_provider_for_screen(Screen.get_default(), css, STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+		if (!app_paintable) { // If the app isn't paintable, used in debugging
+			get_style_context().add_class("debug");
+		}
+
+		// Window settings
+		set_accept_focus(false); // Don't accept focus
+		set_keep_below(true); // Stay below other windows
+		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
+		show_menubar = false;
+
+		flow = new FlowBox();
+		flow.activate_on_single_click = true;
+		flow.get_style_context().add_class("flow");
+		flow.halign = Align.START; // Start at the beginning
+		flow.homogeneous = true;
+		flow.expand = false;
+		flow.selection_mode = SelectionMode.NONE; // Set to none because it likes to default to one
+		flow.set_orientation(Gtk.Orientation.VERTICAL);
+		flow.set_sort_func(sorter); // Set our sorting function
+		flow.valign = Align.START; // Don't let it fill
+
+		get_display_geo(); // Set our geo
+
+		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
+		set_screen(default_screen); // Set to default screen
+		default_screen.composited_changed.connect(set_window_transparent);
+		default_screen.monitors_changed.connect(on_resolution_change);
+		default_screen.size_changed.connect(on_resolution_change);
+
+		add(flow);
+
+		icon_theme = Gtk.IconTheme.get_default(); // Get the current icon theme
+		icon_theme.changed.connect(on_icon_theme_changed); // Trigger on_icon_theme_changed when changed signal emitted
+
+		get_item_size(); // Get our initial icon size
+
+		this.create_special_folders(); // Create our special folders
+		this.get_all_active_mounts(); // Get all our active mounts
+		this.get_all_desktop_files(); // Get all our desktop files
+
+		flow.invalidate_sort(); // Invalidate our sort all at once since we mass added items
+		this.enforce_content_limit(); // Immediately flowbox content resizing
+
+		flow.can_focus = false;
+		flow.child_activated.connect(item_selected);
+		flow.grab_focus.connect(() => { // On grab focus (automatic by flowbox)
+			flow.unselect_all(); // Unselect all items
+		});
+
+		set_window_transparent();
+
+		if (visible_setting) {
+			show();
+		}
+	}
+
+	// create_file_item will create our FileItem and add it if necessary
+	public void create_file_item(File f, FileInfo info, bool skip_resort) {
+		if (info.get_is_hidden()) { // This is a hidden file
+			return; // Don't do anything
+		}
+
+		string created_file_name = info.get_display_name(); // Get the name of the file
+
+		if (file_items.contains(created_file_name)) { // Already have this
+			return;
+		}
+
+		FileType created_file_type = info.get_file_type(); // Get the type of the file
+
+		bool supported_type = ((created_file_type == FileType.DIRECTORY) || (created_file_type == FileType.REGULAR));
+
+		if (supported_type) { // If this is a supported type
+			FileItem item = new FileItem(icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
+			file_items.set(created_file_name, item); // Add our item with our file name and the prepended type
+			flow.add(item); //  Add our FileItem
+			item.request_show();
+
+			if (!skip_resort) {
+				flow.invalidate_sort(); // Invalidate sort to force re-sorting
+			}
+		}
+	}
+
+	// create_mount_item will create our MountItem and add it if necessary
+	public void create_mount_item(Mount mount, string uuid, bool skip_resort) {
+		if (mount_items.contains(uuid)) { // Already have a mount with this UUID
+			return;
+		}
+
+		MountItem mount_item = new MountItem(icon_theme, icon_size, scale_factor, pointer_cursor, mount, uuid); // Create a new Mount Item
+		mount_item.drive_disconnected.connect(on_mount_removed); // When we report our mount's related drive disconnected, call on_mount_removed
+		mount_item.mount_name_changed.connect(() => { // When the name changes
+			flow.invalidate_sort(); // Invalidate sort to force re-sorting
+		});
+
+		mount_items.set(uuid, mount_item);
+		flow.add(mount_item); // Add the Mount Item
+		mount_item.request_show(); // Request showing this item
+
+		if (!skip_resort) {
+			flow.invalidate_sort(); // Invalidate sort to force re-sorting
+		}
+	}
+
+	// create_special_folders will create our special Home and Trash folders
+	public void create_special_folders() {
+		FileItem? home_item = create_special_file_item("home"); // Create our special item for the Home directory
+
+		if (home_item != null) { // Successfully created the home directory item
+			file_items.set("0-special-home", home_item);
+			flow.add(home_item); // Add the home item
+		}
+
+		FileItem? trash_item = create_special_file_item("trash"); // Create our special item for the Trash directory
+
+		if (trash_item != null) { // Successfully created the trash directory item
+			file_items.set("0-special-trash", trash_item);
+			flow.add(trash_item);
+		}
+	}
+
+	// create_special_file_item will create a FileItem for a special directory like Home
+	public FileItem? create_special_file_item(string item_type) {
+		string path = Environment.get_home_dir(); // Default to the home directory
+
+		if (item_type == "trash") {
+			path = Path.build_path(Path.DIR_SEPARATOR_S, path, ".local", "share", "Trash", "files"); // Build a path to the trash files
+		} else if (item_type != "home") { // Not home or trash
+			return null;
+		}
+
+		File special_file = File.new_for_path(path);
+
+		if (item_type == "trash") { // Might not exist, better be safe than sorry
+			if (!special_file.query_exists(null)) { // If the trash files directory doesn't exist
+				warning("Trash folder does not exist. Not creating entry for it.");
+				return null;
+			}
+		}
+
+		var c = new Cancellable(); // Create a new cancellable stack
+		FileInfo? special_file_info = null;
+
+		try {
+			special_file_info = special_file.query_info("standard::*", FileQueryInfoFlags.NONE, c);
+		} catch (Error e) {
+			warning("Failed to get requested information on this directory: %s", e.message);
+			return null;
+		}
+
+		if (c.is_cancelled() || (special_file_info == null)) { // Cancelled or failed to get info
+			warning("Failed to get information on this directory.");
+			return null;
+		}
+
+		ThemedIcon special_icon = new ThemedIcon("user-"+item_type); // Get the user-home or user-trash icon for this
+		FileItem special_item = new FileItem(icon_theme, icon_size, scale_factor, pointer_cursor, special_file, special_file_info, special_icon);
+		special_item.is_special = true; // Say that it is special.
+		special_item.file_type = item_type; // Override file_type
+
+		if (item_type == "trash") {
+			special_item.label_name = "Trash";
+		}
+
+		return special_item;
+	}
+
+	// delete_item will delete any references to a file and its FileItem
+	public void delete_item(File f) {
+		string deleted_file_name = f.get_basename(); // Get the basename of this
+
+		FileItem? file_item = file_items.get(deleted_file_name); // Get our potential FileItem
+
+		if (file_item != null) { // FileItem exists
+			flow.remove(file_item); // Remove from the flowbox
+			file_items.remove(deleted_file_name); // Remove from items
+		}
+	}
+
+	// enforce_content_limit will enforce a maximum amount of items to be shown based on maximum DesktopItem size and width of the primary monitor
+	private void enforce_content_limit() {
+		List<weak Widget> flow_children = flow.get_children(); // Get the children
+
+		if (flow_children.length() == 0) { // If there is children in the flowbox
+			return;
+		}
+
+		if (!visible_setting) { // Items should not be visible
+			flow_children.foreach((item) => {
+				item.hide();
+			});
+
+			return;
+		}
+
+		int height = primary_monitor_geo.height;
+		int width = primary_monitor_geo.width;
+
+		int row_count = height / max_allocated_item_height; // Divide our monitor height by our DesktopItem height
+		int column_count = width / max_allocated_item_width; // Divide our monitor width by our DesktopItem width
+
+		int max_item_count = row_count * column_count; // Multiply our row count by our column count to get the total amount of items we're willing to show
+
+		if (row_count != 1) { // Not valid yet
+			flow.set_max_children_per_line((uint) row_count);
+		}
+
+		List<weak MountItem> mount_vals = mount_items.get_values(); // Get our Mount Items as a list
+		List<weak FileItem> file_vals = file_items.get_values(); // Get our File Items as a list
+		uint real_count = (show_mounts) ? mount_vals.length() : 0; // Use a "real" counter to account for special dirs and mounts, default to length of mount items if showing
+
+		for (var i = 0; i < mount_vals.length(); i++) { // For each mount
+			MountItem item = mount_vals.nth_data(i);
+			item.set_visible(show_mounts); // Set the mount visibility
+		}
+
+		for (var i = 0; i < file_vals.length(); i++) { // For each item
+			FileItem item = file_vals.nth_data(i);
+
+			if (item.file_type == "home") { // Home special folder
+				if (show_home) { // Should show home
+					item.request_show();
+					real_count++;
+				} else {
+					item.hide(); // Hide the home folder
+				}
+			} else if (item.file_type == "trash") { // Trash special folder
+				if (show_trash) { // Should show trash
+					item.request_show();
+					real_count++;
+				} else {
+					item.hide();
+				}
+			} else { // Normal directory or file
+				if (real_count < max_item_count) { // Under our max
+					item.request_show();
+					real_count++;
+				} else { // Above our max
+					item.hide();
+				}
+			}
+		}
+
+		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+	}
+
+	// get_all_active_mounts will get all the mounts of active volumes / drives
+	public void get_all_active_mounts() {
+		List<Drive> connected_drives = volume_monitor.get_connected_drives(); // Get all connected drives
+
+		connected_drives.foreach((drive) => { // For each of the drives
+			if (!drive.has_volumes()) { // If the drive has no volumes
+				return;
+			}
+
+			List<Volume> drive_volumes = drive.get_volumes(); // Get all volumes
+			drive_volumes.foreach((volume) => { // For each volume on this drive
+				Mount? volume_mount = volume.get_mount();
+
+				if (volume_mount == null) { // Has no Mount
+					return;
+				}
+
+				string mount_uuid = this.get_mount_uuid(volume_mount); // Get the UUID for this mount
+
+				if (mount_uuid == "") { // Failed to get the mount
+					return;
+				}
+
+				File? mount_file = volume_mount.get_default_location(); // Get the File for the default location of this mount
+
+				if (mount_file == null) { // Has no location
+					return;
+				}
+
+				create_mount_item(volume_mount, mount_uuid, true); // Create the mount
+			});
+		});
+	}
+
+
+	// get_all_desktop_files will get all the files in our Desktop folder and generate items for them
+	private void get_all_desktop_files() {
+		var c = new Cancellable(); // Create a new cancellable stack
+		FileEnumerator? desktop_file_enumerator = null; 
+
+		try {
+			desktop_file_enumerator = desktop_file.enumerate_children("standard::*", FileQueryInfoFlags.NONE, c);
+		} catch (Error e) {
+			error("Failed to get requested information on our Desktop: %s", e.message);
+		}
+
+		if (desktop_file_enumerator == null) { // Failed to enumerate the file
+			return;
+		}
+
+		try {
+			FileInfo? file_info = null;
+			while (!c.is_cancelled() && ((file_info = desktop_file_enumerator.next_file(c)) != null)) { // While we still haven't cancelled and have a file
+				if (!file_info.get_is_hidden()) { // If the file is not hidden
+					try {
+						File f = desktop_file.get_child_for_display_name(file_info.get_display_name());
+						create_file_item(f, file_info, true); // Create our item
+					} catch (Error e) { // Failed to get the File with the display name
+						warning("Failed to get file with this name: %s", e.message);
+					}
+				}
+			}
+		} catch (Error e) {
+			warning("Failed to iterate on files in Desktop folder: %s", e.message);
+		}
+
+		if (c.is_cancelled()) { // If our cancellable was cancelled
+			warning("Desktop reading was cancelled");
+		}
+	}
+
+	// get_display_geo will get or update our primary monitor workarea
+	private void get_display_geo() {
+		default_screen = Screen.get_default(); // Get our current default Screen
+		default_display = default_screen.get_display(); // Get the display related to it
+		pointer_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
+
+		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
+		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
+		s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
+
+		screen = default_screen;
+		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
+	}
+
+	// get_mount_uuid will get a mount UUID and return it
+	public string get_mount_uuid(Mount mount) {
+		Volume? volume = mount.get_volume(); // Get the volume associated with this Mount
+
+		if (volume == null) { // Failed to get the volume
+			return ""; // Return an empty string
+		}
+
+		string volume_uuid = volume.get_uuid();
+		string? mount_uuid = mount.get_uuid(); // Get any mount UUID
+
+		if (mount_uuid == null) { // No mount UUID
+			mount_uuid = volume_uuid; // Use volume UUID
+		}
+
+		return mount_uuid;
+	}
+
+	 // get_icon_size will get the current icon size from our settings and apply it to our private uint
+	private void get_item_size() {
+		item_size = (DesktopItemSize) settings.get_enum("icon-size");
+
+		if (item_size == DesktopItemSize.SMALL) { // Small Icons
+			icon_size = 32;
+			max_allocated_item_height = 95;
+			max_allocated_item_width = 106;
+		} else if (item_size == DesktopItemSize.NORMAL) { // Normal Icons
+			icon_size = 48;
+			max_allocated_item_height = 131;
+			max_allocated_item_width = 114;
+		} else if (item_size == DesktopItemSize.LARGE) { // Large icons
+			icon_size = 64;
+			max_allocated_item_height = 170;
+			max_allocated_item_width = 154;
+		} else if (item_size == DesktopItemSize.MASSIVE) { // Massive icons
+			icon_size = 96;
+			max_allocated_item_height = 242;
+			max_allocated_item_width = 194;
+		}
+	}
+
+	// item_selected will handle when a child of our FlowBox is selected
+	public void item_selected(FlowBoxChild child) {
+		DesktopItem desktop_item = (DesktopItem) child; // Make into a DesktopItem
+
+		if (desktop_item.item_type == "mount") {
+			MountItem mount_item = (MountItem) desktop_item; // Change to a MountItem
+
+			try {
+				AppInfo appinfo = mount_item.mount_file.query_default_handler(); // Get the default handler for the file
+				List<File> files = new List<File>();
+				files.append(mount_item.mount_file);
+				appinfo.launch(files, null); // Launch the file
+			} catch (Error e) {
+				warning("Failed to launch %s: %s", mount_item.label_name, e.message);
+			}
+		} else { // Special or normal file
+			FileItem item = (FileItem) desktop_item; // Change to a FileItem
+
+			if (item.app_info != null) { // If we got the app info for this
+				Gdk.AppLaunchContext launch_context = default_display.get_app_launch_context(); // Get the app launch context for this Display
+				launch_context.set_screen(default_screen); // Open on our default screen
+				launch_context.set_timestamp(CURRENT_TIME);
+
+				try {
+					item.app_info.launch(null, launch_context); // Launch the application
+				} catch (Error e) {
+					warning("Failed to launch %s: %s", item.name, e.message);
+				}
+			} else { // Just a normal file, hopefully
+				try {
+					AppInfo appinfo = item.file.query_default_handler(); // Get the default handler for the file
+					appinfo.launch(item.file_list, null); // Launch the file
+				} catch (Error e) {
+					warning("Failed to launch %s: %s", item.name, e.message);
+				}
+			}
+		}
+
+		flow.unselect_child(child); // Unselect immediately
+		flow.selection_mode = SelectionMode.NONE; // Mark as NONE so nothing else can get highlighted after this
+	}
+
+	// on_file_changed will handle when a file changes in the Desktop directory
+	private void on_file_changed(File file, File? other_file, FileMonitorEvent type) {
+		if (type == FileMonitorEvent.PRE_UNMOUNT ||
+			type == FileMonitorEvent.UNMOUNTED
+		) {
+			return; // Don't accept anything from these events
+		}
+
+		bool do_create = false;
+		bool do_delete = false;
+		File? create_file_ref = null;
+		File? delete_file_ref = null;
+
+		if (type == FileMonitorEvent.RENAMED) { // File renamed
+			do_create = true; // Going to be creating a new FileItem for new file
+			do_delete = true; // Going to be deleting old FileItem for old file
+			create_file_ref = other_file; // Set to other_file since that is set for RENAMED
+			delete_file_ref = file; // file ist he old file
+		} else if ((type == FileMonitorEvent.MOVED_IN) || (type == FileMonitorEvent.CREATED)) { // File was created in or moved to our Desktop folder
+			do_create = true;
+			create_file_ref = file;
+		} else if ((type == FileMonitorEvent.MOVED_OUT) || (type == FileMonitorEvent.DELETED)) {  // File was deleted or moved out of our Desktop folder
+			do_delete = true;
+			delete_file_ref = file;
+		}
+
+		if ((do_delete) && (delete_file_ref != null)) { // Handle deletions first
+			delete_item(delete_file_ref); // Only pass the file reference since we won't be able to get file info
+		}
+
+		if ((do_create) && (create_file_ref != null)) { // Do creations after any potential deletions
+			Timeout.add(100, () => { // Gives just enough time usually for the file to finish syncing and start reporting a correct mimetype
+				try {
+					FileInfo created_file_info = create_file_ref.query_info("standard::*", 0);
+					create_file_item(create_file_ref, created_file_info, false); // Create our item
+				} catch (Error e) { // Failed to get created file info
+					warning("Failed to create file item: %s", e.message);
+				}
+
+				return false;
+			});
+
+			return; // Return for safety
+		}
+
+		if (!do_create && !do_delete && (
+			(type == FileMonitorEvent.ATTRIBUTE_CHANGED) || // Attributes changed
+			(type == FileMonitorEvent.CHANGES_DONE_HINT)  // Changes probably done
+		)) { // File changed
+			if (file.get_basename().has_prefix(".")) { // Hidden file, we can know this without querying the info
+				return; // Ignore since we do elsewhere
+			}
+
+			Timeout.add(50, () => { // Delay for sync if necessary
+				try {
+					FileInfo existing_file_info = file.query_info("standard::*", 0); // Get the file's info
+					string file_name = existing_file_info.get_display_name(); // Get the name of the file
+
+					if (file_items.contains(file_name)) { // If we have this item
+						FileItem file_item = file_items.get(file_name); // Get the file item
+						file_item.info = existing_file_info; // Update the file info
+						file_item.set_icon(file_item.get_mimetype_icon()); // Update the icon
+					}
+				} catch (Error e) {
+					warning("Failed to get updated attributes for file. %s", e.message);
+				}
+
+				return false;
+			});
+		}
+	}
+
+	// on_icon_theme_changed handles changes to the icon theme
+	private void on_icon_theme_changed() {
+		icon_theme = Gtk.IconTheme.get_default(); // Get the (new) current icon theme
+		mount_items.foreach((key, mount_item) => { // For each mount
+			try {
+				mount_item.set_icon(mount_item.icon); // Re-call our set_icon to re-fetch from current icon theme
+			} catch (Error e) {
+				warning("Failed to set icon factors for a MountItem when refreshing icon sizes: %s", e.message);
+			}
+		});
+
+		file_items.foreach((key, file_item) => { // For each file (special or otherwise)
+			try {
+				file_item.update_icon(icon_theme, icon_size, scale_factor); // Re-call our update_icon to re-fetch from current icon theme
+			} catch (Error e) {
+				warning("Failed to set icon factors for a FileItem when refreshing icon sizes: %s", e.message);
+			}
+		});
+	}
+
+	// on_item_size_changed handles changing the item-size (like from normal to large)
+	private void on_item_size_changed() {
+		get_item_size(); // Get the latest item size value
+		refresh_icon_sizes(); // Refresh our icon sizes
+	}
+
+	// on_mount_added will handle signal events for when we add a mount
+	public void on_mount_added(Mount mount) {
+		string mount_uuid = this.get_mount_uuid(mount); // Get the UUID for this mount
+
+		if (mount_uuid == "") { // Failed to get the mount
+			return;
+		}
+
+		if (mount_items.contains(mount_uuid)) { // Already have this
+			return;
+		}
+
+		create_mount_item(mount, mount_uuid, false); // Create a new Mount item with this UUID and ensure we resort
+	}
+
+	// on_mount_removed will handle signal events for when a MountItem reports a disconnect
+	public void on_mount_removed(MountItem mount_item) {
+		flow.remove(mount_item); // Remove the mount item from the flow box
+		mount_items.remove(mount_item.uuid); // Remove the item from mount_items
+	}
+
+	// on_resolution_change will handle signal events for when the resolution of our primary monitor has changed
+	private void on_resolution_change() {
+		get_display_geo(); // Update our display geo
+		enforce_content_limit();
+	}
+
+	// on_show_changed will handle signal events for when the show setting for our DesktopView has changed
+	private void on_show_changed() {
+		set_window_transparent();
+		screen = default_screen;
+		set_position(WindowPosition.CENTER); // Ensure it is always center
+		visible_setting = settings.get_boolean("show"); // Set our visiblity based on if we should show the DesktopView or not
+
+		enforce_content_limit();
+
+		if (visible_setting) {
+			show();
+		}
+	}
+
+	// on_show_active_mounts_changed will handle when our show-active-mounts setting changes
+	public void on_show_active_mounts_changed() {
+		show_mounts = settings.get_boolean("show-active-mounts");
+		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
+	}
+
+	// on_show_home_folder_changed will handle when our show-home-folder setting changes
+	public void on_show_home_folder_changed() {
+		show_home = settings.get_boolean("show-home-folder");
+		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
+	}
+
+	// on_show_trash_folder_changed will handle when our show-trash-folder setting changes
+	public void on_show_trash_folder_changed() {
+		show_trash = settings.get_boolean("show-trash-folder");
+		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
+	}
+
+	public void refresh_icon_sizes() {
+		mount_items.foreach((key, mount_item) => { // For each mount
+			try {
+				mount_item.set_icon_factors(icon_theme, icon_size, scale_factor);
+			} catch (Error e) {
+				warning("Failed to set icon factors for a MountItem when refreshing icon sizes: %s", e.message);
+			}
+		});
+
+		file_items.foreach((key, file_item) => { // For each file (special or otherwise)
+			try {
+				file_item.update_icon(icon_theme, icon_size, scale_factor); // Call update_icon instead of set_icon_factors so we can reload any appinfo icons and pixbufs too
+			} catch (Error e) {
+				warning("Failed to set icon factors for a FileItem when refreshing icon sizes: %s", e.message);
+			}
+		});
+
+		enforce_content_limit(); // Update our flowbox content limit based on icon / item sizing
+	}
+
+	// sorter handles our FlowBox sorting
+	private int sorter(FlowBoxChild child_one, FlowBoxChild child_two) {
+		DesktopItem c1 = (DesktopItem) child_one;
+		DesktopItem c2 = (DesktopItem) child_two;
+
+		if (c1.is_special && !c2.is_special) { // First is special
+			return -1;
+		} else if (!c1.is_special && c2.is_special) { // Second is special
+			return 1;
+		} else if (c1.is_special && c2.is_special) { // Both are special
+			return c1.name.collate(c2.name);
+		}
+
+		bool c1_is_mount = (c1.item_type == "mount");
+		bool c2_is_mount = (c2.item_type == "mount");
+
+		if (c1_is_mount && !c2_is_mount) { // First is a mount
+			return -1;
+		} else if (!c1_is_mount && c2_is_mount) { // Second is a mount
+			return 1;
+		} else if (c1_is_mount && c2_is_mount) { // Both are mounts
+			return c1.label_name.collate(c2.label_name);
+		}
+
+		bool c1_is_dir = (c1.item_type == "dir"); // Determine if child_one is a directory
+		bool c2_is_dir = (c2.item_type == "dir"); // Determine if child_two is a directory
+
+		if (c1_is_dir && !c2_is_dir) { // Child one is a directory, two is a normal file
+			return -1; // Directories come before folders
+		} else if (!c1_is_dir && c2_is_dir) { // child_two is a directory
+			return 1;
+		}
+
+		return c1.label_name.collate(c2.label_name); // Return the value from collate if both are directories or both are files
+	}
+
+	// set_window_transparent will attempt to set the window to the screen's rgba visual
+	public void set_window_transparent() {
+		var vis = this.screen.get_rgba_visual();
+
+		if (vis == null) {
+			warning("Compositing is not supported. Please file a bug.");
+		} else {
+			set_visual(vis);
+		}
+	}
+}

@@ -1,0 +1,2 @@
+option('with-stateless', type: 'boolean', value: false, description: 'Enable stateless XDG paths')
+option('xdg-appdir', type: 'string', description: 'XDG autostart path')

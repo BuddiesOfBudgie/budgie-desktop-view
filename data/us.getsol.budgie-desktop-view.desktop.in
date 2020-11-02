@@ -1,0 +1,17 @@
+[Desktop Entry]
+_Name=Budgie Desktop View
+_Comment=Budgie Desktop Icon View
+Icon=user-desktop
+Exec=us.getsol.budgie-desktop-view
+TryExec=us.getsol.budgie-desktop-view
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;System;Core;
+NoDisplay=true
+StartupNotify=false
+OnlyShowIn=Budgie;
+StartupWMClass=us.getsol.budgie-desktop-view
+X-GNOME-Autostart-Notify=false
+X-GNOME-Autostart-Phase=Application
+X-GNOME-Autostart-startup-id=us.getsol.budgie-desktop-view
+X-GNOME-AutoRestart=true

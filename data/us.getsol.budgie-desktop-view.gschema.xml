@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="budgie-desktop-view">
+
+  <enum id="us.getsol.budgie-desktop-view.DesktopItemSize">
+	  <value nick="small" value="0" />
+	  <value nick="normal" value="1" />
+	  <value nick="large" value="2" />
+	  <value nick="massive" value="3" />
+  </enum>
+
+  <schema path="/us/getsol/budgie-desktop-view/" id="us.getsol.budgie-desktop-view">
+	<key enum="us.getsol.budgie-desktop-view.DesktopItemSize" name="icon-size">
+	  <default>'normal'</default>
+	  <summary>Desktop Icon Size</summary>
+	  <description>Size of the individual folder and file icons</description>
+	</key>
+
+	<key type="b" name="show">
+	  <default>false</default>
+	  <summary>Enable Desktop Icon View</summary>
+	  <description>Enables the Desktop Icon View</description>
+	</key>
+
+	<key type="b" name="show-active-mounts">
+		<default>false</default>
+		<summary>Show Active Mounts</summary>
+		<description>Show Active Mounts</description>
+	</key>
+
+	<key type="b" name="show-home-folder">
+		<default>false</default>
+		<summary>Show Home Folder</summary>
+		<description>Show Home Folder</description>
+	</key>
+
+	<key type="b" name="show-trash-folder">
+		<default>false</default>
+		<summary>Show Trash Folder</summary>
+		<description>Show Trash Folder</description>
+	</key>
+  </schema>
+</schemalist>

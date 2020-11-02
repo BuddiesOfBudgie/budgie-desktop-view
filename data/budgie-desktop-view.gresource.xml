@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+	<gresource prefix="/us/getsol/budgie-desktop-view">
+		<file alias="view.css" compressed="true">view.css</file>
+	</gresource>
+</gresources>
