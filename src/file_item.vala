@@ -99,25 +99,25 @@ public class FileItem : DesktopItem {
 		}
 	}
 
-	// get_image_for_file will attempt to get the Pixbuf for this file if it is an image
-	// Returns null if not an image or failed to load.
-	public Pixbuf? get_image_for_file() {
+	// load_image_for_file will asynchronously attempt to attempt to load any available pixbuf for this file and set it
+	private async void load_image_for_file() {
 		if (
 			(!_ftype.has_prefix("image/")) || // Not an image
 			(info.get_size() > 1000000) // Greater than 1MB
 		) {
-			return null;
+			return;
 		}
 
 		string file_path = file.get_path();
 
 		try {
-			Pixbuf file_pixbuf = new Pixbuf.from_file_at_scale(file_path, _icon_size, -1, true); // Load the file and scale it immediately. Set to 96 which is our max.
-			return file_pixbuf;
+			Pixbuf? file_pixbuf = new Pixbuf.from_file_at_scale(file_path, _icon_size, -1, true); // Load the file and scale it immediately. Set to 96 which is our max.
+			set_image_pixbuf(file_pixbuf); // Set the image pixbuf
 		} catch (Error e) {
 			warning("Failed to create a PixBuf for the %s: %s\n", file_path, e.message);
-			return null;
 		}
+
+		return;
 	}
 
 	// get_mimetype_icon will attempt to get the icon for the content / mimetype of the file
@@ -142,13 +142,7 @@ public class FileItem : DesktopItem {
 			if (app_info != null) { // If this is a Desktop File
 				desired_icon = app_info.get_icon(); // Get the icon for this desktop file
 			} else { // Normal file
-				Pixbuf? pixbuf = get_image_for_file(); // Get the Pixbuf for this image, if it's even an image
-
-				if (pixbuf != null) { // Got the pixbuf
-					set_image_pixbuf(pixbuf); // Set the image pixbuf
-				} else { // Failed to get a pixbuf for this file
-					desired_icon = get_mimetype_icon();
-				}
+				desired_icon = get_mimetype_icon(); // Immediately set the icon to the mimetype icon
 			}
 		}
 
@@ -161,6 +155,12 @@ public class FileItem : DesktopItem {
 				warning("Failed to set icon for FileItem %s: %s", _name, e.message);
 				throw e;
 			}
+		}
+
+		if (!use_override_icon) {
+			load_image_for_file.begin((obj, res) => {; // Begin to asynchronously load any available pixbuf for this file
+				load_image_for_file.end(res);
+			});
 		}
 	}
 }

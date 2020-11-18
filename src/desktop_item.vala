@@ -27,7 +27,6 @@ public class DesktopItem : FlowBoxChild {
 	protected bool _mount;
 	protected string _name;
 	protected string _type;
-	protected int _padding;
 	protected int? _scale_factor;
 	protected bool _special_dir;
 
@@ -43,6 +42,7 @@ public class DesktopItem : FlowBoxChild {
 	public DesktopItem() {
 		Object(); // Create our DesktopItem as a FlowBoxChild
 		expand = true; // Expand when possible
+		margin = ITEM_MARGIN;
 		set_no_show_all(true);
 		valign = Align.CENTER; // Center naturally, don't fill up space
 
@@ -105,20 +105,6 @@ public class DesktopItem : FlowBoxChild {
 		public set {
 			_name = value;
 			label.set_text(value);
-		}
-	}
-
-	public int padding {
-		public get {
-			return _padding;
-		}
-
-		public set {
-			_padding = value;
-			main_layout.margin = value;
-			main_layout.spacing = value;
-			main_layout.queue_resize();
-			main_layout.queue_draw();
 		}
 	}
 
@@ -204,8 +190,6 @@ public class DesktopItem : FlowBoxChild {
 			_scale_factor = scale_factor;
 		}
 
-		padding = (int) ((_icon_size * 0.25) * _scale_factor); // Update our padding
-
 		if (icon != null) { // Icon is set
 			set_icon(icon); // Reload our icon
 		}
@@ -215,7 +199,8 @@ public class DesktopItem : FlowBoxChild {
 	public void set_image_pixbuf(Pixbuf pix) {
 		if (image == null) { // If we haven't created the Image yet
 			image = new Image.from_pixbuf(pix); // Load the image from pixbuf
-			main_layout.set_center_widget(image); // Indicate this is the center widget
+			image.margin_bottom = 10;
+			main_layout.pack_start(image, true, true, 0); // Indicate this is the center widget
 		} else { // If the Image already exists
 			image.set_from_pixbuf(pix); // Set from the pixbuf
 		}

@@ -28,13 +28,13 @@
 	</key>
 
 	<key type="b" name="show-home-folder">
-		<default>false</default>
+		<default>true</default>
 		<summary>Show Home Folder</summary>
 		<description>Show Home Folder</description>
 	</key>
 
 	<key type="b" name="show-trash-folder">
-		<default>false</default>
+		<default>true</default>
 		<summary>Show Trash Folder</summary>
 		<description>Show Trash Folder</description>
 	</key>

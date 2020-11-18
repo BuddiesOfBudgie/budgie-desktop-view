@@ -27,6 +27,8 @@ public enum DesktopItemSize {
 	MASSIVE = 3; // 96x96
 }
 
+public const int ITEM_MARGIN = 10;
+
 public class DesktopView : Gtk.ApplicationWindow {
 	Screen default_screen;
 	Display default_display;
@@ -52,8 +54,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 	GLib.Settings? settings;
 	VolumeMonitor? volume_monitor;
 
+	FileItem? home_item = null;
+	FileItem? trash_item = null;
+
 	HashTable<string, MountItem?>? mount_items; // All active mounts in our flowbox
 	HashTable<string, FileItem?>? file_items; // All file-related items in our flowbox
+	CompareFunc<FileItem>? file_cmp;
 
 	public DesktopView(Gtk.Application app) {
 		Object(
@@ -79,7 +85,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 			close(); // Close the window
 		}
 
-		settings.changed["icon-size"].connect(on_item_size_changed);
+		create_fileitem_sorter();
+
+		settings.changed["icon-size"].connect(on_icon_size_changed);
 		settings.changed["show"].connect(on_show_changed);
 		settings.changed["show-active-mounts"].connect(on_show_active_mounts_changed);
 		settings.changed["show-home-folder"].connect(on_show_home_folder_changed);
@@ -121,7 +129,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.activate_on_single_click = true;
 		flow.get_style_context().add_class("flow");
 		flow.halign = Align.START; // Start at the beginning
-		flow.homogeneous = true;
 		flow.expand = false;
 		flow.selection_mode = SelectionMode.NONE; // Set to none because it likes to default to one
 		flow.set_orientation(Gtk.Orientation.VERTICAL);
@@ -130,8 +137,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		get_display_geo(); // Set our geo
 
-		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
-		set_screen(default_screen); // Set to default screen
 		default_screen.composited_changed.connect(set_window_transparent);
 		default_screen.monitors_changed.connect(on_resolution_change);
 		default_screen.size_changed.connect(on_resolution_change);
@@ -181,7 +186,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (supported_type) { // If this is a supported type
 			FileItem item = new FileItem(icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
-			file_items.set(created_file_name, item); // Add our item with our file name and the prepended type
+			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 			item.request_show();
 
@@ -214,17 +219,15 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// create_special_folders will create our special Home and Trash folders
 	public void create_special_folders() {
-		FileItem? home_item = create_special_file_item("home"); // Create our special item for the Home directory
+		home_item = create_special_file_item("home"); // Create our special item for the Home directory
 
 		if (home_item != null) { // Successfully created the home directory item
-			file_items.set("0-special-home", home_item);
 			flow.add(home_item); // Add the home item
 		}
 
-		FileItem? trash_item = create_special_file_item("trash"); // Create our special item for the Trash directory
+		trash_item = create_special_file_item("trash"); // Create our special item for the Trash directory
 
 		if (trash_item != null) { // Successfully created the trash directory item
-			file_items.set("0-special-trash", trash_item);
 			flow.add(trash_item);
 		}
 	}
@@ -306,10 +309,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 		int height = primary_monitor_geo.height;
 		int width = primary_monitor_geo.width;
 
-		int row_count = height / max_allocated_item_height; // Divide our monitor height by our DesktopItem height
-		int column_count = width / max_allocated_item_width; // Divide our monitor width by our DesktopItem width
+		int row_count = (int) (height / max_allocated_item_height); // Divide our monitor height by our DesktopItem height
+		int column_count = (int) (width / max_allocated_item_width - 1); // Divide our monitor width by our DesktopItem width
 
-		int max_item_count = row_count * column_count; // Multiply our row count by our column count to get the total amount of items we're willing to show
+		int max_files_allowed = row_count * column_count; // Multiply our row count by our column count to get the total amount of items we're willing to show
 
 		if (row_count != 1) { // Not valid yet
 			flow.set_max_children_per_line((uint) row_count);
@@ -317,42 +320,55 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		List<weak MountItem> mount_vals = mount_items.get_values(); // Get our Mount Items as a list
 		List<weak FileItem> file_vals = file_items.get_values(); // Get our File Items as a list
-		uint real_count = (show_mounts) ? mount_vals.length() : 0; // Use a "real" counter to account for special dirs and mounts, default to length of mount items if showing
+		file_vals.reverse(); // HashTable does a weird thing where it adds the items in reverse order
+		file_vals.sort(file_cmp);
+
+		if (show_mounts) { // Show mounts
+			max_files_allowed -= (int) mount_vals.length(); // Reduce our max item count by our mount_vals length
+		}
+
+		if (show_home) { // Showing our home dir
+			max_files_allowed--;
+			home_item.request_show(); // Show the home item
+		} else {
+			home_item.hide(); // Hide the item
+		}
+
+		if (show_trash) { // Showing our trash
+			max_files_allowed--;
+			trash_item.request_show(); // Show the trash item
+		} else {
+			trash_item.hide(); // Hide the item
+		}
+
+		uint file_vals_len = file_vals.length();
+		uint show_count = 0;
+
+		for (var i = 0; i < max_files_allowed; i++) { // Iterate over our max count of files allowed
+			FileItem? item = file_vals.nth_data(i);
+			if (item == null) { // Don't have this many files
+				break;
+			}
+
+			item.request_show(); // Show the item
+			show_count++;
+		}
 
 		for (var i = 0; i < mount_vals.length(); i++) { // For each mount
 			MountItem item = mount_vals.nth_data(i);
 			item.set_visible(show_mounts); // Set the mount visibility
 		}
 
-		for (var i = 0; i < file_vals.length(); i++) { // For each item
-			FileItem item = file_vals.nth_data(i);
+		if (file_vals_len > max_files_allowed) { // Have more files than allowed
+			for (var i = max_files_allowed; i < file_vals_len; i++) {
+				FileItem? item = file_vals.nth_data(i);
+				if (item == null) { // Don't have this many files
+					break;
+				}
 
-			if (item.file_type == "home") { // Home special folder
-				if (show_home) { // Should show home
-					item.request_show();
-					real_count++;
-				} else {
-					item.hide(); // Hide the home folder
-				}
-			} else if (item.file_type == "trash") { // Trash special folder
-				if (show_trash) { // Should show trash
-					item.request_show();
-					real_count++;
-				} else {
-					item.hide();
-				}
-			} else { // Normal directory or file
-				if (real_count < max_item_count) { // Under our max
-					item.request_show();
-					real_count++;
-				} else { // Above our max
-					item.hide();
-				}
+				item.hide(); // Hide the item
 			}
 		}
-
-		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
-		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 	}
 
 	// get_all_active_mounts will get all the mounts of active volumes / drives
@@ -396,7 +412,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		FileEnumerator? desktop_file_enumerator = null; 
 
 		try {
-			desktop_file_enumerator = desktop_file.enumerate_children("standard::*", FileQueryInfoFlags.NONE, c);
+			desktop_file_enumerator = desktop_file.enumerate_children("standard::*,standard::display-name", FileQueryInfoFlags.NONE, c);
 		} catch (Error e) {
 			error("Failed to get requested information on our Desktop: %s", e.message);
 		}
@@ -409,12 +425,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 			FileInfo? file_info = null;
 			while (!c.is_cancelled() && ((file_info = desktop_file_enumerator.next_file(c)) != null)) { // While we still haven't cancelled and have a file
 				if (!file_info.get_is_hidden()) { // If the file is not hidden
-					try {
-						File f = desktop_file.get_child_for_display_name(file_info.get_display_name());
-						create_file_item(f, file_info, true); // Create our item
-					} catch (Error e) { // Failed to get the File with the display name
-						warning("Failed to get file with this name: %s", e.message);
-					}
+					File f = desktop_file_enumerator.get_child(file_info);
+					create_file_item(f, file_info, true); // Create our item
 				}
 			}
 		} catch (Error e) {
@@ -433,10 +445,15 @@ public class DesktopView : Gtk.ApplicationWindow {
 		pointer_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
+
 		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
 		s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
-
 		screen = default_screen;
+		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
+		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
+		set_screen(default_screen); // Set to default screen
+		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
 	}
 
@@ -464,21 +481,20 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (item_size == DesktopItemSize.SMALL) { // Small Icons
 			icon_size = 32;
-			max_allocated_item_height = 95;
-			max_allocated_item_width = 106;
+			max_allocated_item_width = 90;
 		} else if (item_size == DesktopItemSize.NORMAL) { // Normal Icons
 			icon_size = 48;
-			max_allocated_item_height = 131;
-			max_allocated_item_width = 114;
+			max_allocated_item_width = 90;
 		} else if (item_size == DesktopItemSize.LARGE) { // Large icons
 			icon_size = 64;
-			max_allocated_item_height = 170;
-			max_allocated_item_width = 154;
+			max_allocated_item_width = 150;
 		} else if (item_size == DesktopItemSize.MASSIVE) { // Massive icons
 			icon_size = 96;
-			max_allocated_item_height = 242;
-			max_allocated_item_width = 194;
+			max_allocated_item_width = 160;
 		}
+
+		max_allocated_item_width+=ITEM_MARGIN * 2;
+		max_allocated_item_height = icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
 	}
 
 	// item_selected will handle when a child of our FlowBox is selected
@@ -551,6 +567,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if ((do_delete) && (delete_file_ref != null)) { // Handle deletions first
 			delete_item(delete_file_ref); // Only pass the file reference since we won't be able to get file info
+			enforce_content_limit();
 		}
 
 		if ((do_create) && (create_file_ref != null)) { // Do creations after any potential deletions
@@ -558,6 +575,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 				try {
 					FileInfo created_file_info = create_file_ref.query_info("standard::*", 0);
 					create_file_item(create_file_ref, created_file_info, false); // Create our item
+					enforce_content_limit();
 				} catch (Error e) { // Failed to get created file info
 					warning("Failed to create file item: %s", e.message);
 				}
@@ -598,6 +616,19 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// on_icon_theme_changed handles changes to the icon theme
 	private void on_icon_theme_changed() {
 		icon_theme = Gtk.IconTheme.get_default(); // Get the (new) current icon theme
+
+		try {
+			home_item.update_icon(icon_theme, icon_size, scale_factor); // Update the home icon
+		} catch (Error e) {
+			warning("Failed to update the icon for the Home item: %s", e.message);
+		}
+
+		try {
+			trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+		} catch (Error e) {
+			warning("Failed to update the icon for the Trash item: %s", e.message);
+		}
+
 		mount_items.foreach((key, mount_item) => { // For each mount
 			try {
 				mount_item.set_icon(mount_item.icon); // Re-call our set_icon to re-fetch from current icon theme
@@ -615,8 +646,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		});
 	}
 
-	// on_item_size_changed handles changing the item-size (like from normal to large)
-	private void on_item_size_changed() {
+	// on_icon_size_changed handles changing the item-size (like from normal to large)
+	private void on_icon_size_changed() {
 		get_item_size(); // Get the latest item size value
 		refresh_icon_sizes(); // Refresh our icon sizes
 	}
@@ -634,18 +665,25 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		create_mount_item(mount, mount_uuid, false); // Create a new Mount item with this UUID and ensure we resort
+		enforce_content_limit();
 	}
 
 	// on_mount_removed will handle signal events for when a MountItem reports a disconnect
 	public void on_mount_removed(MountItem mount_item) {
 		flow.remove(mount_item); // Remove the mount item from the flow box
 		mount_items.remove(mount_item.uuid); // Remove the item from mount_items
+		enforce_content_limit();
 	}
 
 	// on_resolution_change will handle signal events for when the resolution of our primary monitor has changed
 	private void on_resolution_change() {
-		get_display_geo(); // Update our display geo
-		enforce_content_limit();
+		Timeout.add(250, () => {
+			get_display_geo(); // Update our display geo
+			get_item_size(); // Update desired item spacing
+			enforce_content_limit();
+
+			return false;
+		});
 	}
 
 	// on_show_changed will handle signal events for when the show setting for our DesktopView has changed
@@ -681,6 +719,18 @@ public class DesktopView : Gtk.ApplicationWindow {
 	}
 
 	public void refresh_icon_sizes() {
+		try {
+			home_item.update_icon(icon_theme, icon_size, scale_factor); // Update the home icon
+		} catch (Error e) {
+			warning("Failed to update the icon for the Home item: %s", e.message);
+		}
+
+		try {
+			trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+		} catch (Error e) {
+			warning("Failed to update the icon for the Trash item: %s", e.message);
+		}
+
 		mount_items.foreach((key, mount_item) => { // For each mount
 			try {
 				mount_item.set_icon_factors(icon_theme, icon_size, scale_factor);
@@ -700,7 +750,30 @@ public class DesktopView : Gtk.ApplicationWindow {
 		enforce_content_limit(); // Update our flowbox content limit based on icon / item sizing
 	}
 
+	// create_fileitem_sorter will create our fileitem sorter
+	// Folders should go before files, with the values of each being collated
+	private void create_fileitem_sorter() {
+		file_cmp = (c1, c2) => {
+			bool c1_is_dir = (c1.item_type == "dir"); // Determine if child_one is a directory
+			bool c2_is_dir = (c2.item_type == "dir"); // Determine if child_two is a directory
+
+			if (c1_is_dir && !c2_is_dir) { // Child one is a directory, two is a normal file
+				return -1; // Directories come before folders
+			} else if (!c1_is_dir && c2_is_dir) { // child_two is a directory
+				return 1;
+			}
+
+			string c1_ck = c1.label_name.collate_key_for_filename();
+			string c2_ck = c2.label_name.collate_key_for_filename();
+
+			return strcmp(c1_ck, c2_ck); // Return the value from collate if both are directories or both are files
+		};
+	}
+
 	// sorter handles our FlowBox sorting
+	// this will use the filename collation keys instead of the direct names as it handles ints, -, and . in a predictable manner
+	// e.g. cc.svg should be before cc-amex.svg as well as handle locales
+	// This also has the by-product of being faster. So yay.
 	private int sorter(FlowBoxChild child_one, FlowBoxChild child_two) {
 		DesktopItem c1 = (DesktopItem) child_one;
 		DesktopItem c2 = (DesktopItem) child_two;
@@ -710,7 +783,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		} else if (!c1.is_special && c2.is_special) { // Second is special
 			return 1;
 		} else if (c1.is_special && c2.is_special) { // Both are special
-			return c1.name.collate(c2.name);
+			string c1_ck = c1.name.collate_key_for_filename(c1.name.length);
+			string c2_ck = c2.name.collate_key_for_filename(c2.name.length);
+			return strcmp(c1_ck, c2_ck);
 		}
 
 		bool c1_is_mount = (c1.item_type == "mount");
@@ -721,19 +796,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 		} else if (!c1_is_mount && c2_is_mount) { // Second is a mount
 			return 1;
 		} else if (c1_is_mount && c2_is_mount) { // Both are mounts
-			return c1.label_name.collate(c2.label_name);
+			string c1_ck = c1.label_name.collate_key_for_filename(c1.label_name.length);
+			string c2_ck = c2.label_name.collate_key_for_filename(c2.label_name.length);
+			return strcmp(c1_ck, c2_ck);
 		}
 
-		bool c1_is_dir = (c1.item_type == "dir"); // Determine if child_one is a directory
-		bool c2_is_dir = (c2.item_type == "dir"); // Determine if child_two is a directory
-
-		if (c1_is_dir && !c2_is_dir) { // Child one is a directory, two is a normal file
-			return -1; // Directories come before folders
-		} else if (!c1_is_dir && c2_is_dir) { // child_two is a directory
-			return 1;
-		}
-
-		return c1.label_name.collate(c2.label_name); // Return the value from collate if both are directories or both are files
+		return file_cmp((FileItem) child_one, (FileItem) child_two); // At this point, compare the dir / file names
 	}
 
 	// set_window_transparent will attempt to set the window to the screen's rgba visual

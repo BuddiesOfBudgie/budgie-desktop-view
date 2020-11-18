@@ -1,7 +1,7 @@
 project(
 	'budgie-desktop-view',
 	['c', 'vala'],
-	version: '0.1',
+	version: '0.99',
 	license: [ 'Apache-2.0' ],
 	default_options: [
 		'b_lto=false',
@@ -107,6 +107,7 @@ report = [
 	'    datadir:                                @0@'.format(datadir),
 	'    sysconfdir:                             @0@'.format(confdir),
 	'    localedir:                              @0@'.format(localedir),
+	'    XDG Path:                               @0@'.format(xdg_appdir),
 	'',
 ]
 
