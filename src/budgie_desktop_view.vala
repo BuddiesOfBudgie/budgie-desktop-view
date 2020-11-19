@@ -514,21 +514,42 @@ public class DesktopView : Gtk.ApplicationWindow {
 			}
 		} else { // Special or normal file
 			FileItem item = (FileItem) desktop_item; // Change to a FileItem
+			Gdk.AppLaunchContext launch_context = default_display.get_app_launch_context(); // Get the app launch context for this Display
+			launch_context.set_screen(default_screen); // Open on our default screen
+			launch_context.set_timestamp(CURRENT_TIME);
 
 			if (item.app_info != null) { // If we got the app info for this
-				Gdk.AppLaunchContext launch_context = default_display.get_app_launch_context(); // Get the app launch context for this Display
-				launch_context.set_screen(default_screen); // Open on our default screen
-				launch_context.set_timestamp(CURRENT_TIME);
-
 				try {
 					item.app_info.launch(null, launch_context); // Launch the application
 				} catch (Error e) {
 					warning("Failed to launch %s: %s", item.name, e.message);
 				}
 			} else { // Just a normal file, hopefully
+				AppInfo? appinfo = null;
+
+				if (item.file_type == "trash") { // Unique case for file type
+					appinfo = (DesktopAppInfo) AppInfo.get_default_for_type("inode/directory", true); // Ensure we using something which can handle inode/directory
+				} else {
+					try {
+						appinfo = item.file.query_default_handler(); // Get the default handler for the file
+					} catch (Error e) {
+						warning("Failed to get the default handler for this file: %s", e.message);
+					}
+				}
+
+				if (appinfo == null) {
+					warning("Failed to get app to handle this file.");
+					return;
+				}
+
 				try {
-					AppInfo appinfo = item.file.query_default_handler(); // Get the default handler for the file
-					appinfo.launch(item.file_list, null); // Launch the file
+					if ((item.file_type == "trash") && (appinfo.get_id() == "org.gnome.Nautilus.desktop")) { // Is trash and using Nautilus
+						List<string> trash_uris = new List<string>();
+						trash_uris.append("trash:///"); // Open as trash:/// so Nautilus can show us the empty banner
+						appinfo.launch_uris(trash_uris, launch_context);
+					} else {
+						appinfo.launch(item.file_list, launch_context); // Launch the file
+					}
 				} catch (Error e) {
 					warning("Failed to launch %s: %s", item.name, e.message);
 				}
