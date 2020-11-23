@@ -188,7 +188,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 			FileItem item = new FileItem(icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
 			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
-			item.request_show();
+
+			if (visible_setting) { // Showing icons currently
+				item.request_show();
+			}
 
 			if (!skip_resort) {
 				flow.invalidate_sort(); // Invalidate sort to force re-sorting
@@ -210,7 +213,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		mount_items.set(uuid, mount_item);
 		flow.add(mount_item); // Add the Mount Item
-		mount_item.request_show(); // Request showing this item
+
+		if (visible_setting) { // Showing icons currently
+			mount_item.request_show(); // Request showing this item
+		}
 
 		if (!skip_resort) {
 			flow.invalidate_sort(); // Invalidate sort to force re-sorting
@@ -344,6 +350,16 @@ public class DesktopView : Gtk.ApplicationWindow {
 		uint file_vals_len = file_vals.length();
 		uint show_count = 0;
 
+		for (var i = 0; i < mount_vals.length(); i++) { // For each mount
+			MountItem item = mount_vals.nth_data(i);
+
+			if (show_mounts) {
+				item.request_show(); // Show the item
+			} else {
+				item.hide();
+			}
+		}
+
 		for (var i = 0; i < max_files_allowed; i++) { // Iterate over our max count of files allowed
 			FileItem? item = file_vals.nth_data(i);
 			if (item == null) { // Don't have this many files
@@ -352,11 +368,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 			item.request_show(); // Show the item
 			show_count++;
-		}
-
-		for (var i = 0; i < mount_vals.length(); i++) { // For each mount
-			MountItem item = mount_vals.nth_data(i);
-			item.set_visible(show_mounts); // Set the mount visibility
 		}
 
 		if (file_vals_len > max_files_allowed) { // Have more files than allowed
@@ -441,20 +452,17 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// get_display_geo will get or update our primary monitor workarea
 	private void get_display_geo() {
 		default_screen = Screen.get_default(); // Get our current default Screen
-		default_display = default_screen.get_display(); // Get the display related to it
+		screen = default_screen;
+
+		default_display = Display.get_default(); // Get the display related to it
 		pointer_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
 
 		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
 		s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
-		screen = default_screen;
-		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
-		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
-		set_screen(default_screen); // Set to default screen
-		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
-		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
+		update_window_position();
 	}
 
 	// get_mount_uuid will get a mount UUID and return it
@@ -710,14 +718,15 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// on_show_changed will handle signal events for when the show setting for our DesktopView has changed
 	private void on_show_changed() {
 		set_window_transparent();
-		screen = default_screen;
-		set_position(WindowPosition.CENTER); // Ensure it is always center
 		visible_setting = settings.get_boolean("show"); // Set our visiblity based on if we should show the DesktopView or not
 
 		enforce_content_limit();
 
 		if (visible_setting) {
 			show();
+			update_window_position();
+		} else {
+			hide();
 		}
 	}
 
@@ -834,5 +843,11 @@ public class DesktopView : Gtk.ApplicationWindow {
 		} else {
 			set_visual(vis);
 		}
+	}
+
+	private void update_window_position() {
+		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
+		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
 	}
 }
