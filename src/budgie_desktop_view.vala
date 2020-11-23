@@ -252,8 +252,14 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (item_type == "trash") { // Might not exist, better be safe than sorry
 			if (!special_file.query_exists(null)) { // If the trash files directory doesn't exist
-				warning("Trash folder does not exist. Not creating entry for it.");
-				return null;
+				warning("Trash folder does not exist. Creating the necessary directories.");
+
+				try {
+					special_file.make_directory_with_parents(); // Attempt to make the directory
+				} catch (Error e) {
+					warning("Failed to create %s: %s", path, e.message);
+					return null;
+				}
 			}
 		}
 
@@ -340,11 +346,13 @@ public class DesktopView : Gtk.ApplicationWindow {
 			home_item.hide(); // Hide the item
 		}
 
-		if (show_trash) { // Showing our trash
-			max_files_allowed--;
-			trash_item.request_show(); // Show the trash item
-		} else {
-			trash_item.hide(); // Hide the item
+		if (trash_item != null) { // Trash Item exists
+			if (show_trash) { // Showing our trash
+				max_files_allowed--;
+				trash_item.request_show(); // Show the trash item
+			} else {
+				trash_item.hide(); // Hide the item
+			}
 		}
 
 		uint file_vals_len = file_vals.length();
@@ -652,10 +660,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 			warning("Failed to update the icon for the Home item: %s", e.message);
 		}
 
-		try {
-			trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
-		} catch (Error e) {
-			warning("Failed to update the icon for the Trash item: %s", e.message);
+		if (trash_item != null) {
+			try {
+				trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+			} catch (Error e) {
+				warning("Failed to update the icon for the Trash item: %s", e.message);
+			}
 		}
 
 		mount_items.foreach((key, mount_item) => { // For each mount
@@ -755,10 +765,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 			warning("Failed to update the icon for the Home item: %s", e.message);
 		}
 
-		try {
-			trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
-		} catch (Error e) {
-			warning("Failed to update the icon for the Trash item: %s", e.message);
+		if (trash_item != null) {
+			try {
+				trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+			} catch (Error e) {
+				warning("Failed to update the icon for the Trash item: %s", e.message);
+			}
 		}
 
 		mount_items.foreach((key, mount_item) => { // For each mount
