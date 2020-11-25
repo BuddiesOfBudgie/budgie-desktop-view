@@ -1,20 +1,17 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+Copyright 2020 Solus Project
 
-  http://www.apache.org/licenses/LICENSE-2.0
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Unless required by applicable law or agreed to in writing,
-software distributed under the License is distributed on an
-"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, either express or implied.  See the License for the
-specific language governing permissions and limitations
-under the License.
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 using Gdk;
@@ -47,6 +44,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	bool show_trash;
 	bool visible_setting;
 
+	DesktopMenu desktop_menu;
 	FlowBox flow;
 
 	File? desktop_file;
@@ -125,6 +123,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
 		show_menubar = false;
 
+		desktop_menu = new DesktopMenu(); // Create our new desktop menu
+
 		flow = new FlowBox();
 		flow.activate_on_single_click = true;
 		flow.get_style_context().add_class("flow");
@@ -160,6 +160,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.grab_focus.connect(() => { // On grab focus (automatic by flowbox)
 			flow.unselect_all(); // Unselect all items
 		});
+
+		button_release_event.connect(on_button_release); // Bind on_button_release to our button_release_event
 
 		set_window_transparent();
 
@@ -574,6 +576,21 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		flow.unselect_child(child); // Unselect immediately
 		flow.selection_mode = SelectionMode.NONE; // Mark as NONE so nothing else can get highlighted after this
+	}
+
+	// on_button_release handles the release of a mouse button
+	private bool on_button_release(EventButton event) {
+		if (event.button == 1) { // Left click
+			desktop_menu.popdown(); // Hide the menu
+			return Gdk.EVENT_PROPAGATE;
+		} else if (event.button == 3) { // Right click
+			desktop_menu.place_on_monitor(primary_monitor); // Ensure menu is on primary monitor
+			desktop_menu.set_screen(default_screen); // Ensure menu is on our screen
+			desktop_menu.popup_at_pointer(event); // Popup where our mouse is
+			return Gdk.EVENT_STOP;
+		} else {
+			return Gdk.EVENT_PROPAGATE;
+		}
 	}
 
 	// on_file_changed will handle when a file changes in the Desktop directory

@@ -6,6 +6,7 @@ desktop_view_sources = [
 	'budgie_desktop_view.vala',
 	'desktop_item.vala',
 	'file_item.vala',
+	'menu.vala',
 	'mount_item.vala'
 ]
 
