@@ -27,7 +27,7 @@ public class DesktopMenu : Gtk.Menu {
 		budgie_app = new DesktopAppInfo("budgie-desktop-settings.desktop");
 		gcc_app = new DesktopAppInfo("gnome-control-center.desktop");
 
-		Gtk.MenuItem budgie_item = new Gtk.MenuItem.with_label(_("Desktop Settings"));
+		Gtk.MenuItem budgie_item = new Gtk.MenuItem.with_label(_("Budgie Desktop Settings"));
 		Gtk.MenuItem system_item = new Gtk.MenuItem.with_label(_("System Settings"));
 
 		budgie_item.activate.connect(on_budgie_settings_activated); // Activate on_budgie_settings_activated when we press the Budgie item
