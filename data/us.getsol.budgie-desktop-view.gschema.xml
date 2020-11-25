@@ -38,5 +38,11 @@
 		<summary>Show Trash Folder</summary>
 		<description>Show Trash Folder</description>
 	</key>
+
+	<key type="s" name="terminal">
+		<default>'gnome-terminal'</default>
+		<summary>Terminal to use with Open in Terminal</summary>
+		<description>Terminal to use with Open in Terminal</description>
+	</key>
   </schema>
 </schemalist>

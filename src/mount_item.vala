@@ -65,6 +65,30 @@ public class MountItem : DesktopItem {
 				drive_disconnected(this); // Emit drive_disconnected with ourself
 			});
 		}
+
+		button_release_event.connect(on_button_release);
+	}
+
+	// on_button_release will specifically handle blocking right click
+	private bool on_button_release(EventButton event) {
+		if (event.button != 1) { // Not left click
+			return Gdk.EVENT_STOP; // Don't propagate
+		}
+
+		launch();
+		return Gdk.EVENT_PROPAGATE;
+	}
+
+	// launch will attempt to open the mount in the default handler for it
+	public void launch() {
+		try {
+			AppInfo appinfo = mount_file.query_default_handler(); // Get the default handler for the file
+			List<File> files = new List<File>();
+			files.append(mount_file);
+			appinfo.launch(files, null); // Launch the file
+		} catch (Error e) {
+			warning("Failed to launch %s: %s", label_name, e.message);
+		}
 	}
 
 	// update_mount_info will update the DesktopItem and internal info related to this Mount

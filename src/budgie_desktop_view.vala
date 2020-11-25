@@ -26,6 +26,15 @@ public enum DesktopItemSize {
 
 public const int ITEM_MARGIN = 10;
 
+public const string[] SUPPORTED_TERMINALS = {
+	"alacritty",
+	"gnome-terminal",
+	"konsole",
+	"mate-terminal",
+	"terminator",
+	"tilix"
+};
+
 public class DesktopView : Gtk.ApplicationWindow {
 	Screen default_screen;
 	Display default_display;
@@ -44,6 +53,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	bool show_trash;
 	bool visible_setting;
 
+	FileMenu file_menu;
 	DesktopMenu desktop_menu;
 	FlowBox flow;
 
@@ -72,6 +82,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 			startup_id: "us.getsol.budgie-desktop-view",
 			type_hint: Gdk.WindowTypeHint.DESKTOP
 		);
+
+		Gtk.Settings? default_settings = Gtk.Settings.get_default(); // Get the default settings
+		default_settings.gtk_application_prefer_dark_theme = true;
 
 		file_items = new HashTable<string, FileItem>(str_hash, str_equal);
 		mount_items =  new HashTable<string, MountItem>(str_hash, str_equal);
@@ -124,6 +137,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		show_menubar = false;
 
 		desktop_menu = new DesktopMenu(); // Create our new desktop menu
+		file_menu = new FileMenu(); // Create our new file menu
 
 		flow = new FlowBox();
 		flow.activate_on_single_click = true;
@@ -156,7 +170,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		this.enforce_content_limit(); // Immediately flowbox content resizing
 
 		flow.can_focus = false;
-		flow.child_activated.connect(item_selected);
 		flow.grab_focus.connect(() => { // On grab focus (automatic by flowbox)
 			flow.unselect_all(); // Unselect all items
 		});
@@ -187,7 +200,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		bool supported_type = ((created_file_type == FileType.DIRECTORY) || (created_file_type == FileType.REGULAR));
 
 		if (supported_type) { // If this is a supported type
-			FileItem item = new FileItem(icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
+			FileItem item = new FileItem(settings, file_menu, icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
 			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 
@@ -281,7 +294,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		ThemedIcon special_icon = new ThemedIcon("user-"+item_type); // Get the user-home or user-trash icon for this
-		FileItem special_item = new FileItem(icon_theme, icon_size, scale_factor, pointer_cursor, special_file, special_file_info, special_icon);
+		FileItem special_item = new FileItem(settings, file_menu, icon_theme, icon_size, scale_factor, pointer_cursor, special_file, special_file_info, special_icon);
 		special_item.is_special = true; // Say that it is special.
 		special_item.file_type = item_type; // Override file_type
 
@@ -513,69 +526,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		max_allocated_item_width+=ITEM_MARGIN * 2;
 		max_allocated_item_height = icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
-	}
-
-	// item_selected will handle when a child of our FlowBox is selected
-	public void item_selected(FlowBoxChild child) {
-		DesktopItem desktop_item = (DesktopItem) child; // Make into a DesktopItem
-
-		if (desktop_item.item_type == "mount") {
-			MountItem mount_item = (MountItem) desktop_item; // Change to a MountItem
-
-			try {
-				AppInfo appinfo = mount_item.mount_file.query_default_handler(); // Get the default handler for the file
-				List<File> files = new List<File>();
-				files.append(mount_item.mount_file);
-				appinfo.launch(files, null); // Launch the file
-			} catch (Error e) {
-				warning("Failed to launch %s: %s", mount_item.label_name, e.message);
-			}
-		} else { // Special or normal file
-			FileItem item = (FileItem) desktop_item; // Change to a FileItem
-			Gdk.AppLaunchContext launch_context = default_display.get_app_launch_context(); // Get the app launch context for this Display
-			launch_context.set_screen(default_screen); // Open on our default screen
-			launch_context.set_timestamp(CURRENT_TIME);
-
-			if (item.app_info != null) { // If we got the app info for this
-				try {
-					item.app_info.launch(null, launch_context); // Launch the application
-				} catch (Error e) {
-					warning("Failed to launch %s: %s", item.name, e.message);
-				}
-			} else { // Just a normal file, hopefully
-				AppInfo? appinfo = null;
-
-				if (item.file_type == "trash") { // Unique case for file type
-					appinfo = (DesktopAppInfo) AppInfo.get_default_for_type("inode/directory", true); // Ensure we using something which can handle inode/directory
-				} else {
-					try {
-						appinfo = item.file.query_default_handler(); // Get the default handler for the file
-					} catch (Error e) {
-						warning("Failed to get the default handler for this file: %s", e.message);
-					}
-				}
-
-				if (appinfo == null) {
-					warning("Failed to get app to handle this file.");
-					return;
-				}
-
-				try {
-					if ((item.file_type == "trash") && (appinfo.get_id() == "org.gnome.Nautilus.desktop")) { // Is trash and using Nautilus
-						List<string> trash_uris = new List<string>();
-						trash_uris.append("trash:///"); // Open as trash:/// so Nautilus can show us the empty banner
-						appinfo.launch_uris(trash_uris, launch_context);
-					} else {
-						appinfo.launch(item.file_list, launch_context); // Launch the file
-					}
-				} catch (Error e) {
-					warning("Failed to launch %s: %s", item.name, e.message);
-				}
-			}
-		}
-
-		flow.unselect_child(child); // Unselect immediately
-		flow.selection_mode = SelectionMode.NONE; // Mark as NONE so nothing else can get highlighted after this
 	}
 
 	// on_button_release handles the release of a mouse button

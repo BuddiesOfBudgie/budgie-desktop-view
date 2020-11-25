@@ -66,8 +66,6 @@ public class DesktopItem : FlowBoxChild {
 		event_box.set_events(EventMask.LEAVE_NOTIFY_MASK);
 		event_box.enter_notify_event.connect(on_enter);
 		event_box.leave_notify_event.connect(on_leave);
-
-		event_box.button_release_event.connect(on_button_release);
 	}
 
 	public bool is_mount {
@@ -105,15 +103,6 @@ public class DesktopItem : FlowBoxChild {
 			_name = value;
 			label.set_text(value);
 		}
-	}
-
-	// on_button_release will specifically handle blocking right click
-	private bool on_button_release(EventButton event) {
-		if (event.button == 3) { // Right click
-			return Gdk.EVENT_STOP; // Don't propagate
-		}
-
-		return Gdk.EVENT_PROPAGATE;
 	}
 
 	private bool on_enter(EventCrossing event) {
