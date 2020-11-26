@@ -1,3 +1,5 @@
+![view](https://github.com/getsolus/budgie-desktop-view/raw/master/.github/screenshots/budgie-desktop-settings-with-view.jpg)
+
 # Budgie Desktop View
 
 Budgie Desktop View is the official Budgie desktop icons application / implementation, developed by [Solus](https://getsol.us/).
