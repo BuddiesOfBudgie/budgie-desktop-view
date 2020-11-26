@@ -2,16 +2,35 @@
 
 The Budgie Desktop View is the official Budgie desktop icons application / implementation, developed by [Solus](https://getsol.us/).
 
-This implementation is **not** designed to replace your file manager or to perform typical file manager actions, its purpose is pretty simple:
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/getsolus/budgie-desktop-view) ![#budgie-desktop-dev on Freenode](https://img.shields.io/badge/freenode-%23budgie--desktop--dev-4AF)
+![#solus-dev on Freenode](https://img.shields.io/badge/freenode-%23solus--dev-28C)
 
-1. Display an optimal amount of your folders and files in your Desktop folder, based on screen resolution and our options for icon sizes.
-2. Provide options to enable quick access to your Home folder, "Trash", as well as mounts.
+## Scope
+
+The scope of this project is to provide quick access to the content and applications you consider most important. It is not designed to replace your file manager or to perform typical file manager actions.
+
+Budgie Desktop View provides:
+
+1. Options to enable and access "special" folders such as your Home directory and Trash.
+2. Showing active drive / volume mounts (including mounted removable media).
+3. An ordered list of Desktop directory contents, prioritizing folders before files while maintaining order of content that respects locales.
+4. Independently adjustable icon sizing from your file manager
+5. Right-click menu options for the background canvas to quickly access Budgie Desktop and System Settings, as well right-click menu options for opening a file using the default app, or via the Terminal.
 
 Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie is not supported and is outside this project's scope.
 
 ![Budgie logo](https://getsol.us/imgs/budgie-small.png)
 
 ![Solus logo](https://build.getsol.us/logo.png)
+
+## TODO
+
+As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO is currently limited to the following:
+
+- Introduce an option to choose between single and double-click options for launching items.
+- Ensuring long-press gestures on items work for 2-in-1 devices.
+- Drag & Drop support: TBD on full scope. Current thinking is it will copy files and symlink directories (to avoid the need for recursive copy functionality).
+- GTK4 port.
 
 ## Building
 
@@ -75,4 +94,4 @@ Budgie Desktop View is licensed under the Apache-2.0 license.
 
 ## Authors
 
-Copyright © 2020 Solus
+Copyright © 2020 Solus Project
