@@ -42,9 +42,9 @@ The dependencies provided below are build-time dependencies and named according 
 
 Name | Minimum Version | Max. (Tested) Version
 ---- | ---- | ----
-glib2-devel | 2.64.0 | 2.64.4
+glib2-devel | 2.64.0 | 2.66.3
 libgtk-3-devel | 3.24.0 | 3.34.22
-vala | 0.48.0 | 0.48.9
+vala | 0.48.0 | 0.50.2
 
 #### Solus
 
