@@ -90,23 +90,28 @@ meson --prefix=/usr --libdir="lib64" --sysconfdir=/etc -Dwith-stateless=true bui
 
 Obviously change any of the above mentioned defaults or flags as necessary.
 
-## Building and running
+## Compiling
 
-Once aforementioned dependencies have been installed, you can compile and run the Budgie Desktop View. Meson configuration step can be changed depending on your build target (debug or release) using above mentioned information.
+Once aforementioned dependencies have been installed and Meson configuration step executed, you can compile sources.
 
 ```
-meson --prefix=/usr --libdir="lib64" --sysconfdir=/etc -Dbuildtype=debugoptimized  -Dwith-stateless=true build
-cd build
-ninja && sudo ninja install
+ninja -C build
+```
+
+## Installing
+
+Budgie Desktop View can be installed using this command:
+
+```
+sudo ninja -C build install
 ```
 
 ## Uninstalling
 
-Budgie Desktop View can be uninstalled using those commands:
+Budgie Desktop View can be uninstalled using this command:
 
 ```
-cd build
-sudo ninja uninstall
+sudo ninja -C build uninstall
 ```
 
 ## License
