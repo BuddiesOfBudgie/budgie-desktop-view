@@ -90,6 +90,25 @@ meson --prefix=/usr --libdir="lib64" --sysconfdir=/etc -Dwith-stateless=true bui
 
 Obviously change any of the above mentioned defaults or flags as necessary.
 
+## Building and running
+
+Once aforementioned dependencies have been installed, you can compile and run the Budgie Desktop View. Meson configuration step can be changed depending on your build target (debug or release) using above mentioned information.
+
+```
+meson --prefix=/usr --libdir="lib64" --sysconfdir=/etc -Dbuildtype=debugoptimized  -Dwith-stateless=true build
+cd build
+ninja && sudo ninja install
+```
+
+## Uninstalling
+
+Budgie Desktop View can be uninstalled using those commands:
+
+```
+cd build
+sudo ninja uninstall
+```
+
 ## License
 
 Budgie Desktop View is licensed under the Apache-2.0 license.
