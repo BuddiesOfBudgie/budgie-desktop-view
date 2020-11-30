@@ -38,7 +38,7 @@ As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO
 
 ### Dependencies
 
-The dependencies provided below are build-time dependencies and named according to the package name on Solus. You may need to look up the equivelant for your own operating system.
+The dependencies provided below are build-time dependencies and named according to the package name on Solus. You may need to look up the equivalent for your own operating system.
 
 Name | Minimum Version | Max. (Tested) Version
 ---- | ---- | ----
@@ -62,11 +62,11 @@ By default, we will build with:
 - `buildtype` as `release`
 - Link-time optimization (LTO) enabled as `b_lto`, which reduces executable size.
 - `-03` GCC optimization level, which optimizes for both code size and execution time
-- Warning level (`warning_level`) set to max (3). This is the equivelant to `-Wall` / `-Wpedantic`.
+- Warning level (`warning_level`) set to max (3). This is the equivalent to `-Wall` / `-Wpedantic`.
 
 #### Stateless
 
-Budgie Desktop View supports stateless XDG paths. This is **disabled** by default and typically reserved for Solus, which a proponent of statelessness. Should you wish to enable this (which will set the XDG application directory for autostart to datadir + `xdg/autostart` as opposed to using sysconfdir), you can use `-Dwith-stateless=true`
+Budgie Desktop View supports stateless XDG paths. This is **disabled** by default and typically reserved for Solus, which is a proponent of statelessness. Should you wish to enable this (which will set the XDG application directory for autostart to datadir + `xdg/autostart` as opposed to using sysconfdir), you can use `-Dwith-stateless=true`
 
 #### Custom XDG Application Directory
 
@@ -74,7 +74,7 @@ By default, Budgie Desktop View will install its autostart file to either datadi
 
 ### Debug
 
-Given the above mentioned defaults, it is highly recommended that you specifying `-Dbuildtype=debugoptimized` during meson "configure" time in order to get useful debug info, for example:
+Given the above mentioned defaults, it is highly recommended that you specify `-Dbuildtype=debugoptimized` during meson "configure" time in order to get useful debug info, for example:
 
 ```
 meson --prefix=/usr --libdir="lib64" --sysconfdir=/etc -Dbuildtype=debugoptimized  -Dwith-stateless=true build
@@ -92,7 +92,7 @@ Obviously change any of the above mentioned defaults or flags as necessary.
 
 ### Compiling
 
-Once aforementioned dependencies have been installed and Meson configuration step executed, you can compile sources.
+Once the aforementioned dependencies have been installed and Meson configuration step executed, you can compile sources.
 
 ```
 ninja -C build
