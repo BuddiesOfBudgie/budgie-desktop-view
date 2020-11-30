@@ -22,18 +22,13 @@ public class FileItem : DesktopItem {
 	public FileInfo info;
 	public DesktopAppInfo? app_info;
 
-	public unowned GLib.Settings? term_settings;
-	public unowned FileMenu? file_menu;
-
 	private List<File> _flist;
 	private string _ftype;
 	private Icon? _override_icon = null;
 	private bool use_override_icon = false;
 
-	public FileItem(GLib.Settings term, FileMenu m, IconTheme icon_theme, int size, int scale_factor, Gdk.Cursor cursor, File f, FileInfo finfo, Icon? override_icon) {
-		term_settings = term;
-		file_menu = m;
-		pointer_cursor = cursor;
+	public FileItem(UnifiedProps p, File f, FileInfo finfo, Icon? override_icon) {
+		props = p;
 		file = f;
 
 		if (finfo == null) { // If no file_info was provided
@@ -74,7 +69,7 @@ public class FileItem : DesktopItem {
 		use_override_icon = (override_icon != null);
 
 		try {
-			update_icon(icon_theme, size, scale_factor); // Set the icon immediately
+			update_icon(); // Set the icon immediately
 		} catch (Error e) {
 			warning("Failed to set icon for FileItem %s: %s", _name, e.message);
 		}
@@ -115,7 +110,7 @@ public class FileItem : DesktopItem {
 		string file_path = file.get_path();
 
 		try {
-			Pixbuf? file_pixbuf = new Pixbuf.from_file_at_scale(file_path, _icon_size, -1, true); // Load the file and scale it immediately. Set to 96 which is our max.
+			Pixbuf? file_pixbuf = new Pixbuf.from_file_at_scale(file_path, props.icon_size, -1, true); // Load the file and scale it immediately. Set to 96 which is our max.
 			set_image_pixbuf(file_pixbuf); // Set the image pixbuf
 		} catch (Error e) {
 			warning("Failed to create a PixBuf for the %s: %s\n", file_path, e.message);
@@ -141,8 +136,8 @@ public class FileItem : DesktopItem {
 			return Gdk.EVENT_PROPAGATE;
 		} else if (event.button == 3) { // Right click
 			if (app_info == null) { // If this isn't an application
-				file_menu.set_item(this); // Set the FileItem on the FileMenu
-				file_menu.show_menu(event); // Call show_menu which handles popup at pointer and screen setting
+				props.file_menu.set_item(this); // Set the FileItem on the FileMenu
+				props.file_menu.show_menu(event); // Call show_menu which handles popup at pointer and screen setting
 			}
 
 			return Gdk.EVENT_STOP;
@@ -165,8 +160,8 @@ public class FileItem : DesktopItem {
 				warning("Failed to launch %s: %s", name, e.message);
 			}
 		} else { // Just a normal file, hopefully
-			if (in_terminal && (term_settings != null)) { // If we're launching this via a Terminal and we have the required settings
-				string preferred_terminal = term_settings.get_string("terminal");
+			if (in_terminal && (props.desktop_settings != null)) { // If we're launching this via a Terminal and we have the required settings
+				string preferred_terminal = props.desktop_settings.get_string("terminal");
 				bool supported_terminal = (preferred_terminal in SUPPORTED_TERMINALS);
 
 				if (!supported_terminal) { // Not a supported terminal
@@ -256,8 +251,8 @@ public class FileItem : DesktopItem {
 	}
 
 	// update_icon updates our icon based on FileItem specific functionality
-	public void update_icon(IconTheme theme, int size, int scale_factor) throws Error {
-		set_icon_factors(theme, size, scale_factor); // Set various icon scale factors
+	public void update_icon() throws Error {
+		set_icon_factors(); // Set various icon scale factors
 
 		Icon? desired_icon = null;
 

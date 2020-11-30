@@ -40,12 +40,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 	Display default_display;
 	Monitor primary_monitor;
 	Rectangle primary_monitor_geo;
-	int s_factor; // scale_factor but we can't name it that. Gtk.Widget has it as a field
-	Cursor? pointer_cursor = null;
+	UnifiedProps shared_props;
 
 	DesktopItemSize? item_size; // Default our Item Size to NORMAL
-	IconTheme? icon_theme;
-	int? icon_size; // Desired icon size
 	int? max_allocated_item_height;
 	int? max_allocated_item_width;
 	bool show_home;
@@ -53,13 +50,11 @@ public class DesktopView : Gtk.ApplicationWindow {
 	bool show_trash;
 	bool visible_setting;
 
-	FileMenu file_menu;
 	DesktopMenu desktop_menu;
 	FlowBox flow;
 
 	File? desktop_file;
 	FileMonitor? desktop_monitor;
-	GLib.Settings? settings;
 	VolumeMonitor? volume_monitor;
 
 	FileItem? home_item = null;
@@ -83,32 +78,34 @@ public class DesktopView : Gtk.ApplicationWindow {
 			type_hint: Gdk.WindowTypeHint.DESKTOP
 		);
 
+		shared_props = new UnifiedProps(); // Create shared props
+
 		Gtk.Settings? default_settings = Gtk.Settings.get_default(); // Get the default settings
 		default_settings.gtk_application_prefer_dark_theme = true;
 
 		file_items = new HashTable<string, FileItem>(str_hash, str_equal);
 		mount_items =  new HashTable<string, MountItem>(str_hash, str_equal);
 
-		settings = new GLib.Settings("us.getsol.budgie-desktop-view"); // Get our desktop-view settings
+		shared_props.desktop_settings = new GLib.Settings("us.getsol.budgie-desktop-view"); // Get our desktop-view settings
 
-		if (settings == null) {
+		if (shared_props.desktop_settings == null) {
 			warning("Required gschema not installed.");
 			close(); // Close the window
 		}
 
 		create_fileitem_sorter();
 
-		settings.changed["icon-size"].connect(on_icon_size_changed);
-		settings.changed["show"].connect(on_show_changed);
-		settings.changed["show-active-mounts"].connect(on_show_active_mounts_changed);
-		settings.changed["show-home-folder"].connect(on_show_home_folder_changed);
-		settings.changed["show-trash-folder"].connect(on_show_trash_folder_changed);
+		shared_props.desktop_settings.changed["icon-size"].connect(on_icon_size_changed);
+		shared_props.desktop_settings.changed["show"].connect(on_show_changed);
+		shared_props.desktop_settings.changed["show-active-mounts"].connect(on_show_active_mounts_changed);
+		shared_props.desktop_settings.changed["show-home-folder"].connect(on_show_home_folder_changed);
+		shared_props.desktop_settings.changed["show-trash-folder"].connect(on_show_trash_folder_changed);
 
-		show_home = settings.get_boolean("show-home-folder");
-		show_mounts = settings.get_boolean("show-active-mounts");
-		show_trash = settings.get_boolean("show-trash-folder");
+		show_home = shared_props.desktop_settings.get_boolean("show-home-folder");
+		show_mounts = shared_props.desktop_settings.get_boolean("show-active-mounts");
+		show_trash = shared_props.desktop_settings.get_boolean("show-trash-folder");
 
-		visible_setting = settings.get_boolean("show");
+		visible_setting = shared_props.desktop_settings.get_boolean("show");
 
 		desktop_file = File.new_for_path(Environment.get_user_special_dir(UserDirectory.DESKTOP)); // Get the Desktop folder "file"
 
@@ -137,10 +134,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		show_menubar = false;
 
 		desktop_menu = new DesktopMenu(); // Create our new desktop menu
-		file_menu = new FileMenu(); // Create our new file menu
+		shared_props.file_menu = new FileMenu(); // Create our new file menu and set it in our shared props
 
 		flow = new FlowBox();
-		flow.activate_on_single_click = true;
 		flow.get_style_context().add_class("flow");
 		flow.halign = Align.START; // Start at the beginning
 		flow.expand = false;
@@ -157,8 +153,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		add(flow);
 
-		icon_theme = Gtk.IconTheme.get_default(); // Get the current icon theme
-		icon_theme.changed.connect(on_icon_theme_changed); // Trigger on_icon_theme_changed when changed signal emitted
+		shared_props.icon_theme = Gtk.IconTheme.get_default(); // Get the current icon theme
+		shared_props.icon_theme.changed.connect(on_icon_theme_changed); // Trigger on_icon_theme_changed when changed signal emitted
 
 		get_item_size(); // Get our initial icon size
 
@@ -200,7 +196,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		bool supported_type = ((created_file_type == FileType.DIRECTORY) || (created_file_type == FileType.REGULAR));
 
 		if (supported_type) { // If this is a supported type
-			FileItem item = new FileItem(settings, file_menu, icon_theme, icon_size, s_factor, pointer_cursor, f, info, null); // Create our new Item
+			FileItem item = new FileItem(shared_props, f, info, null); // Create our new Item
 			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 
@@ -220,7 +216,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			return;
 		}
 
-		MountItem mount_item = new MountItem(icon_theme, icon_size, scale_factor, pointer_cursor, mount, uuid); // Create a new Mount Item
+		MountItem mount_item = new MountItem(shared_props, mount, uuid); // Create a new Mount Item
 		mount_item.drive_disconnected.connect(on_mount_removed); // When we report our mount's related drive disconnected, call on_mount_removed
 		mount_item.mount_name_changed.connect(() => { // When the name changes
 			flow.invalidate_sort(); // Invalidate sort to force re-sorting
@@ -294,7 +290,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		ThemedIcon special_icon = new ThemedIcon("user-"+item_type); // Get the user-home or user-trash icon for this
-		FileItem special_item = new FileItem(settings, file_menu, icon_theme, icon_size, scale_factor, pointer_cursor, special_file, special_file_info, special_icon);
+		FileItem special_item = new FileItem(shared_props, special_file, special_file_info, special_icon);
 		special_item.is_special = true; // Say that it is special.
 		special_item.file_type = item_type; // Override file_type
 
@@ -478,12 +474,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 		screen = default_screen;
 
 		default_display = Display.get_default(); // Get the display related to it
-		pointer_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
+		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
 
 		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
-		s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
+		shared_props.s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
 		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 		update_window_position();
 	}
@@ -508,24 +504,24 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	 // get_icon_size will get the current icon size from our settings and apply it to our private uint
 	private void get_item_size() {
-		item_size = (DesktopItemSize) settings.get_enum("icon-size");
+		item_size = (DesktopItemSize) shared_props.desktop_settings.get_enum("icon-size");
 
 		if (item_size == DesktopItemSize.SMALL) { // Small Icons
-			icon_size = 32;
+			shared_props.icon_size = 32;
 			max_allocated_item_width = 90;
 		} else if (item_size == DesktopItemSize.NORMAL) { // Normal Icons
-			icon_size = 48;
+			shared_props.icon_size = 48;
 			max_allocated_item_width = 90;
 		} else if (item_size == DesktopItemSize.LARGE) { // Large icons
-			icon_size = 64;
+			shared_props.icon_size = 64;
 			max_allocated_item_width = 150;
 		} else if (item_size == DesktopItemSize.MASSIVE) { // Massive icons
-			icon_size = 96;
+			shared_props.icon_size = 96;
 			max_allocated_item_width = 160;
 		}
 
 		max_allocated_item_width+=ITEM_MARGIN * 2;
-		max_allocated_item_height = icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
+		max_allocated_item_height = shared_props.icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
 	}
 
 	// on_button_release handles the release of a mouse button
@@ -619,17 +615,15 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// on_icon_theme_changed handles changes to the icon theme
 	private void on_icon_theme_changed() {
-		icon_theme = Gtk.IconTheme.get_default(); // Get the (new) current icon theme
-
 		try {
-			home_item.update_icon(icon_theme, icon_size, scale_factor); // Update the home icon
+			home_item.update_icon(); // Update the home icon
 		} catch (Error e) {
 			warning("Failed to update the icon for the Home item: %s", e.message);
 		}
 
 		if (trash_item != null) {
 			try {
-				trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+				trash_item.update_icon(); // Update the trash icon
 			} catch (Error e) {
 				warning("Failed to update the icon for the Trash item: %s", e.message);
 			}
@@ -645,7 +639,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		file_items.foreach((key, file_item) => { // For each file (special or otherwise)
 			try {
-				file_item.update_icon(icon_theme, icon_size, scale_factor); // Re-call our update_icon to re-fetch from current icon theme
+				file_item.update_icon(); // Re-call our update_icon to re-fetch from current icon theme
 			} catch (Error e) {
 				warning("Failed to set icon factors for a FileItem when refreshing icon sizes: %s", e.message);
 			}
@@ -695,7 +689,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// on_show_changed will handle signal events for when the show setting for our DesktopView has changed
 	private void on_show_changed() {
 		set_window_transparent();
-		visible_setting = settings.get_boolean("show"); // Set our visiblity based on if we should show the DesktopView or not
+		visible_setting = shared_props.desktop_settings.get_boolean("show"); // Set our visiblity based on if we should show the DesktopView or not
 
 		enforce_content_limit();
 
@@ -709,32 +703,32 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// on_show_active_mounts_changed will handle when our show-active-mounts setting changes
 	public void on_show_active_mounts_changed() {
-		show_mounts = settings.get_boolean("show-active-mounts");
+		show_mounts = shared_props.desktop_settings.get_boolean("show-active-mounts");
 		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
 	}
 
 	// on_show_home_folder_changed will handle when our show-home-folder setting changes
 	public void on_show_home_folder_changed() {
-		show_home = settings.get_boolean("show-home-folder");
+		show_home = shared_props.desktop_settings.get_boolean("show-home-folder");
 		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
 	}
 
 	// on_show_trash_folder_changed will handle when our show-trash-folder setting changes
 	public void on_show_trash_folder_changed() {
-		show_trash = settings.get_boolean("show-trash-folder");
+		show_trash = shared_props.desktop_settings.get_boolean("show-trash-folder");
 		enforce_content_limit(); // Just call enforce_content_limit again which will handle the visibility control
 	}
 
 	public void refresh_icon_sizes() {
 		try {
-			home_item.update_icon(icon_theme, icon_size, scale_factor); // Update the home icon
+			home_item.update_icon(); // Update the home icon
 		} catch (Error e) {
 			warning("Failed to update the icon for the Home item: %s", e.message);
 		}
 
 		if (trash_item != null) {
 			try {
-				trash_item.update_icon(icon_theme, icon_size, scale_factor); // Update the trash icon
+				trash_item.update_icon(); // Update the trash icon
 			} catch (Error e) {
 				warning("Failed to update the icon for the Trash item: %s", e.message);
 			}
@@ -742,7 +736,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		mount_items.foreach((key, mount_item) => { // For each mount
 			try {
-				mount_item.set_icon_factors(icon_theme, icon_size, scale_factor);
+				mount_item.set_icon_factors();
 			} catch (Error e) {
 				warning("Failed to set icon factors for a MountItem when refreshing icon sizes: %s", e.message);
 			}
@@ -750,7 +744,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		file_items.foreach((key, file_item) => { // For each file (special or otherwise)
 			try {
-				file_item.update_icon(icon_theme, icon_size, scale_factor); // Call update_icon instead of set_icon_factors so we can reload any appinfo icons and pixbufs too
+				file_item.update_icon(); // Call update_icon instead of set_icon_factors so we can reload any appinfo icons and pixbufs too
 			} catch (Error e) {
 				warning("Failed to set icon factors for a FileItem when refreshing icon sizes: %s", e.message);
 			}

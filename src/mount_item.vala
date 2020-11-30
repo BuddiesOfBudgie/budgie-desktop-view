@@ -25,14 +25,14 @@ public class MountItem : DesktopItem {
 	public signal void drive_disconnected(MountItem item);
 	public signal void mount_name_changed(MountItem item);
 
-	public MountItem(IconTheme icon_theme, int size, int scale_factor, Gdk.Cursor cursor, Mount provided_mount, string true_uuid) {
-		pointer_cursor = cursor;
+	public MountItem(UnifiedProps p, Mount provided_mount, string true_uuid) {
+		props = p;
 		mount = provided_mount;
 		uuid = true_uuid;
 		_type = "mount"; // Report internally as a mount
 
 		try {
-			set_icon_factors(icon_theme, size, scale_factor); // Set various icon scale factors
+			set_icon_factors(); // Set various icon scale factors
 		} catch (Error e) {
 			warning("Failed to set icon factors when generating a MountItem: %s", e.message);
 		}

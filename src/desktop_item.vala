@@ -18,21 +18,17 @@ using Gdk;
 using Gtk;
 
 public class DesktopItem : FlowBoxChild {
-	protected int? _icon_size;
-	protected IconTheme? _icon_theme;
+	protected unowned UnifiedProps props;
 	protected int _label_width;
 	protected bool _mount;
 	protected string _name;
 	protected string _type;
-	protected int? _scale_factor;
 	protected bool _special_dir;
 
 	protected Image? image;
 	protected Label? label;
 	protected EventBox event_box;
 	protected Box main_layout;
-
-	protected Cursor? pointer_cursor = null;
 
 	public Icon? icon;
 
@@ -111,7 +107,7 @@ public class DesktopItem : FlowBoxChild {
 		}
 
 		label.get_style_context().add_class("selected");
-		get_window().set_cursor(pointer_cursor);
+		get_window().set_cursor(props.hand_cursor);
 		return EVENT_STOP;
 	}
 
@@ -143,7 +139,7 @@ public class DesktopItem : FlowBoxChild {
 
 		icon = ico; // Set the icon
 
-		IconInfo? icon_info = _icon_theme.lookup_by_gicon_for_scale(icon, _icon_size, _scale_factor, IconLookupFlags.USE_BUILTIN & IconLookupFlags.GENERIC_FALLBACK);
+		IconInfo? icon_info = props.icon_theme.lookup_by_gicon_for_scale(icon, props.icon_size, props.s_factor, IconLookupFlags.USE_BUILTIN & IconLookupFlags.GENERIC_FALLBACK);
 
 		if (icon_info == null) { // Failed to lookup the icon
 			throw new IconThemeError.FAILED("Failed to load icon for: %s\n", name);
@@ -161,31 +157,21 @@ public class DesktopItem : FlowBoxChild {
 	}
 
 	// set_icon_factors will update various icon factors based on what is provided
-	public void set_icon_factors(IconTheme? theme, int? size, int? scale_factor) throws Error {
-		if (theme != null) { // Theme set
-			_icon_theme = theme;
-		}
-
-		if (size != null) { // Size set
-			_icon_size = size;
-
-			if (_icon_size <= 48) { // Small or Normal
+	public void set_icon_factors() throws Error {
+		if (props.icon_size != null) { // Size set
+			if (props.icon_size <= 48) { // Small or Normal
 				_label_width = 12;
 				label.get_style_context().remove_class("larger-text");
-			} else if (_icon_size == 64) { // Large
+			} else if (props.icon_size == 64) { // Large
 				_label_width = 18;
 				label.get_style_context().add_class("larger-text");
-			} else if (_icon_size == 96) { // Massive
+			} else if (props.icon_size == 96) { // Massive
 				_label_width = 20;
 				label.get_style_context().add_class("larger-text");
 			}
 
 			label.max_width_chars = _label_width; // Set our label width
 			label.width_chars = _label_width; // Set our label width
-		}
-
-		if (scale_factor != null) { // Scale factor set
-			_scale_factor = scale_factor;
 		}
 
 		if (icon != null) { // Icon is set

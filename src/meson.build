@@ -8,7 +8,8 @@ desktop_view_sources = [
 	'desktop_menu.vala',
 	'file_item.vala',
 	'file_menu.vala',
-	'mount_item.vala'
+	'mount_item.vala',
+	'unified_props.vala'
 ]
 
 desktop_view_deps = [
