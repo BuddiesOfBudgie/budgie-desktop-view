@@ -58,8 +58,7 @@ public class DesktopItem : FlowBoxChild {
 		event_box.add(main_layout);
 
 		add(event_box);
-		event_box.set_events(EventMask.ENTER_NOTIFY_MASK);
-		event_box.set_events(EventMask.LEAVE_NOTIFY_MASK);
+		event_box.set_events(EventMask.BUTTON_PRESS_MASK & EventMask.ENTER_NOTIFY_MASK & EventMask.LEAVE_NOTIFY_MASK);
 		event_box.enter_notify_event.connect(on_enter);
 		event_box.leave_notify_event.connect(on_leave);
 	}

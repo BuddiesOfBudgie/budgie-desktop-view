@@ -74,6 +74,7 @@ public class FileItem : DesktopItem {
 			warning("Failed to set icon for FileItem %s: %s", _name, e.message);
 		}
 
+		button_press_event.connect(on_button_press);
 		button_release_event.connect(on_button_release);
 	}
 
@@ -129,17 +130,29 @@ public class FileItem : DesktopItem {
 		return themed_icon;
 	}
 
-	// on_button_release will handle clicking on the File Item
-	public bool on_button_release(EventButton event) {
-		if (event.button == 1) { // Left Click
-			launch(false); // Launch normally
-			return Gdk.EVENT_PROPAGATE;
-		} else if (event.button == 3) { // Right click
+	// on_button_release handles when we've released our mouse button
+	// This is only intended to be used for left single click and right click
+	public bool on_button_release(EventButton ev) {
+		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE) { // Single left click
+			launch(false);
+			return Gdk.EVENT_STOP;
+		} else if (ev.button == 3) { // Right click
 			if (app_info == null) { // If this isn't an application
 				props.file_menu.set_item(this); // Set the FileItem on the FileMenu
-				props.file_menu.show_menu(event); // Call show_menu which handles popup at pointer and screen setting
+				props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
 			}
 
+			return Gdk.EVENT_STOP;
+		}
+
+		return Gdk.EVENT_PROPAGATE;
+	}
+
+	// on_button_press handles when we've pressed our mouse button
+	// This is only used for double left click
+	public bool on_button_press(EventButton ev) {
+		if (!props.is_single_click && props.is_desired_primary_click_type(ev)) { // Left double Click
+			launch(false); // Launch normally
 			return Gdk.EVENT_STOP;
 		}
 

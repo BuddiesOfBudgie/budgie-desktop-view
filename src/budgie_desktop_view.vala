@@ -502,7 +502,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		return mount_uuid;
 	}
 
-	 // get_icon_size will get the current icon size from our settings and apply it to our private uint
+	// get_icon_size will get the current icon size from our settings and apply it to our private uint
 	private void get_item_size() {
 		item_size = (DesktopItemSize) shared_props.desktop_settings.get_enum("icon-size");
 
@@ -524,7 +524,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		max_allocated_item_height = shared_props.icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
 	}
 
-	// on_button_release handles the release of a mouse button
+	// on_button_release handles the releasing of a mouse button
 	private bool on_button_release(EventButton event) {
 		if (event.button == 1) { // Left click
 			desktop_menu.popdown(); // Hide the menu

@@ -1,48 +1,59 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="budgie-desktop-view">
 
-  <enum id="us.getsol.budgie-desktop-view.DesktopItemSize">
-	  <value nick="small" value="0" />
-	  <value nick="normal" value="1" />
-	  <value nick="large" value="2" />
-	  <value nick="massive" value="3" />
-  </enum>
+	<enum id="us.getsol.budgie-desktop-view.ClickPolicy">
+		<value nick="single" value="1" />
+		<value nick="double" value="2" />
+	</enum>
 
-  <schema path="/us/getsol/budgie-desktop-view/" id="us.getsol.budgie-desktop-view">
-	<key enum="us.getsol.budgie-desktop-view.DesktopItemSize" name="icon-size">
-	  <default>'normal'</default>
-	  <summary>Desktop Icon Size</summary>
-	  <description>Size of the individual folder and file icons</description>
-	</key>
+	<enum id="us.getsol.budgie-desktop-view.DesktopItemSize">
+		<value nick="small" value="0" />
+		<value nick="normal" value="1" />
+		<value nick="large" value="2" />
+		<value nick="massive" value="3" />
+	</enum>
 
-	<key type="b" name="show">
-	  <default>false</default>
-	  <summary>Enable Desktop Icon View</summary>
-	  <description>Enables the Desktop Icon View</description>
-	</key>
+	<schema path="/us/getsol/budgie-desktop-view/" id="us.getsol.budgie-desktop-view">
+		<key enum="us.getsol.budgie-desktop-view.ClickPolicy" name="click-policy">
+			<default>'single'</default>
+			<summary>Use single or double click to open Desktop items.</summary>
+			<description>Use single or double click to open Desktop items.</description>
+		</key>
 
-	<key type="b" name="show-active-mounts">
-		<default>false</default>
-		<summary>Show Active Mounts</summary>
-		<description>Show Active Mounts</description>
-	</key>
+		<key enum="us.getsol.budgie-desktop-view.DesktopItemSize" name="icon-size">
+			<default>'normal'</default>
+			<summary>Desktop Icon Size</summary>
+			<description>Size of the individual folder and file icons</description>
+		</key>
 
-	<key type="b" name="show-home-folder">
-		<default>true</default>
-		<summary>Show Home Folder</summary>
-		<description>Show Home Folder</description>
-	</key>
+		<key type="b" name="show">
+			<default>false</default>
+			<summary>Enable Desktop Icon View</summary>
+			<description>Enables the Desktop Icon View</description>
+		</key>
 
-	<key type="b" name="show-trash-folder">
-		<default>true</default>
-		<summary>Show Trash Folder</summary>
-		<description>Show Trash Folder</description>
-	</key>
+		<key type="b" name="show-active-mounts">
+			<default>false</default>
+			<summary>Show Active Mounts</summary>
+			<description>Show Active Mounts</description>
+		</key>
 
-	<key type="s" name="terminal">
-		<default>'gnome-terminal'</default>
-		<summary>Terminal to use with Open in Terminal</summary>
-		<description>Terminal to use with Open in Terminal</description>
-	</key>
-  </schema>
+		<key type="b" name="show-home-folder">
+			<default>true</default>
+			<summary>Show Home Folder</summary>
+			<description>Show Home Folder</description>
+		</key>
+
+		<key type="b" name="show-trash-folder">
+			<default>true</default>
+			<summary>Show Trash Folder</summary>
+			<description>Show Trash Folder</description>
+		</key>
+
+		<key type="s" name="terminal">
+			<default>'gnome-terminal'</default>
+			<summary>Terminal to use with Open in Terminal</summary>
+			<description>Terminal to use with Open in Terminal</description>
+		</key>
+	</schema>
 </schemalist>
