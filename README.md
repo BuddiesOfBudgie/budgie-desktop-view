@@ -29,7 +29,6 @@ Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie 
 
 As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO is currently limited to the following:
 
-- Introduce an option to choose between single and double-click options for launching items.
 - Ensuring long-press gestures on items work for 2-in-1 devices.
 - Drag & Drop support: TBD on full scope. Current thinking is it will copy files and symlink directories (to avoid the need for recursive copy functionality).
 - GTK4 port.
