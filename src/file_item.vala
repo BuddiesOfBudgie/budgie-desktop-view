@@ -20,7 +20,9 @@ using Gtk;
 public class FileItem : DesktopItem {
 	public File file;
 	public FileInfo info;
-	public DesktopAppInfo? app_info;
+	public DesktopAppInfo? app_info = null;
+
+	public bool exclude_item = false;
 
 	private List<File> _flist;
 	private string _ftype;
@@ -46,7 +48,8 @@ public class FileItem : DesktopItem {
 		_ftype = finfo.get_content_type(); // Set the file type to the file mimetype
 
 		if (_ftype == "application/x-desktop") { // Desktop File
-			app_info = new DesktopAppInfo.from_filename(file.get_path()); // Get the DesktopAppInfo for this file with its absolute path
+			string path = file.get_path();
+			app_info = new DesktopAppInfo.from_filename(path); // Get the DesktopAppInfo for this file with its absolute path
 
 			if (app_info != null) { // Successfully got the App Info
 				string? app_name = app_info.get_locale_string("DisplayName"); // Get the locale string for the display name
@@ -56,9 +59,13 @@ public class FileItem : DesktopItem {
 				}
 
 				label_name = app_name;
+			} else {
+				warning("Failed to get the app info for %s. Budgie Desktop View currently only supports Application type desktop files.", path);
+				exclude_item = true;
 			}
-		} else {
-			app_info = null;
+		}
+
+		if (app_info == null) { // Not a desktop file or failed to get info
 			label_name = info.get_display_name(); // Default our name to being the display name of the file
 		}
 
@@ -133,7 +140,7 @@ public class FileItem : DesktopItem {
 	// on_button_release handles when we've released our mouse button
 	// This is only intended to be used for left single click and right click
 	public bool on_button_release(EventButton ev) {
-		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE) { // Single left click
+		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
 			launch(false);
 			return Gdk.EVENT_STOP;
 		} else if (ev.button == 3) { // Right click
@@ -151,7 +158,7 @@ public class FileItem : DesktopItem {
 	// on_button_press handles when we've pressed our mouse button
 	// This is only used for double left click
 	public bool on_button_press(EventButton ev) {
-		if (!props.is_single_click && props.is_desired_primary_click_type(ev)) { // Left double Click
+		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
 			launch(false); // Launch normally
 			return Gdk.EVENT_STOP;
 		}

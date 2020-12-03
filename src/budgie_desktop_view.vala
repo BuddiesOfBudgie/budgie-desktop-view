@@ -197,6 +197,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (supported_type) { // If this is a supported type
 			FileItem item = new FileItem(shared_props, f, info, null); // Create our new Item
+			if (item.exclude_item) { // Shouldn't actually include this item
+				return;
+			}
+
 			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 

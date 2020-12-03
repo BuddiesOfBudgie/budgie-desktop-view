@@ -77,7 +77,7 @@ public class MountItem : DesktopItem {
 			return Gdk.EVENT_STOP;
 		}
 
-		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE) { // Single left click
+		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
 			launch();
 			return Gdk.EVENT_STOP;
 		}
