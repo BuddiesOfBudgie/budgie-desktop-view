@@ -201,7 +201,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 				return;
 			}
 
-			file_items.set(item.label_name, item); // Add our item with our file name and the prepended type
+			file_items.set(created_file_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 
 			if (visible_setting) { // Showing icons currently
@@ -308,6 +308,11 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// delete_item will delete any references to a file and its FileItem
 	public void delete_item(File f) {
 		string deleted_file_name = f.get_basename(); // Get the basename of this
+
+		try {
+			FileInfo delete_file_info = f.query_info("standard::*", 0);
+			deleted_file_name = delete_file_info.get_display_name();
+		} catch (Error e) {}
 
 		FileItem? file_item = file_items.get(deleted_file_name); // Get our potential FileItem
 
@@ -545,10 +550,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// on_file_changed will handle when a file changes in the Desktop directory
 	private void on_file_changed(File file, File? other_file, FileMonitorEvent type) {
-		if (type == FileMonitorEvent.PRE_UNMOUNT ||
-			type == FileMonitorEvent.UNMOUNTED
-		) {
+		if (type == FileMonitorEvent.PRE_UNMOUNT || type == FileMonitorEvent.UNMOUNTED) {
 			return; // Don't accept anything from these events
+		}
+
+		if (file.get_basename().has_prefix(".")) { // Ignore since we never would've added it
+			return;
 		}
 
 		bool do_create = false;
@@ -575,9 +582,21 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		if ((do_create) && (create_file_ref != null)) { // Do creations after any potential deletions
+			if (create_file_ref.get_basename().has_prefix(".")) { // Hidden file
+				return;
+			}
+
 			Timeout.add(100, () => { // Gives just enough time usually for the file to finish syncing and start reporting a correct mimetype
 				try {
 					FileInfo created_file_info = create_file_ref.query_info("standard::*", 0);
+					string file_name = created_file_info.get_display_name();
+
+					if (file_items.contains(file_name) || // Already have this
+						created_file_info.get_is_hidden() // Is hidden
+					) {
+						return false;
+					}
+
 					create_file_item(create_file_ref, created_file_info, false); // Create our item
 					enforce_content_limit();
 				} catch (Error e) { // Failed to get created file info

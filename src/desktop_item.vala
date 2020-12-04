@@ -126,8 +126,14 @@ public class DesktopItem : FlowBoxChild {
 		show();
 		main_layout.show();
 		event_box.show();
-		image.show();
-		label.show();
+
+		if (image != null) {
+			image.show();
+		}
+
+		if (label != null) {
+			label.show();
+		}
 	}
 
 	// set_icon is responsible for setting an Icon Theme's representation of an Icon
@@ -139,7 +145,21 @@ public class DesktopItem : FlowBoxChild {
 		icon = ico; // Set the icon
 
 		IconInfo? icon_info = props.icon_theme.lookup_by_gicon_for_scale(icon, props.icon_size, props.s_factor, IconLookupFlags.USE_BUILTIN & IconLookupFlags.GENERIC_FALLBACK);
+		set_icon_from_iconinfo(icon_info);
+	}
 
+	// set_icon_from_name is responsible for setting our icon based on an icon name
+	public void set_icon_from_name(string icon_name) throws Error {
+		try {
+			Pixbuf? pix = props.icon_theme.load_icon_for_scale(icon_name, props.icon_size, props.s_factor, IconLookupFlags.GENERIC_FALLBACK);
+			set_image_pixbuf(pix);
+		} catch (Error e) {
+			throw e;
+		}
+	}
+
+	// set_icon_from_iconinfo will attempt to load the pixbuf from the IconInfo and set our image pixbuf
+	public void set_icon_from_iconinfo(IconInfo? icon_info) throws Error {
 		if (icon_info == null) { // Failed to lookup the icon
 			throw new IconThemeError.FAILED("Failed to load icon for: %s\n", name);
 		}
@@ -174,7 +194,11 @@ public class DesktopItem : FlowBoxChild {
 		}
 
 		if (icon != null) { // Icon is set
-			set_icon(icon); // Reload our icon
+			try {
+				set_icon(icon); // Reload our icon
+			} catch (Error e) {
+				warning("Failed to set icon: %s", e.message);
+			}
 		}
 	}
 
