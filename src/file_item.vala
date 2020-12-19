@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 using Gdk;
+using GLib;
 using Gtk;
 
 public class FileItem : DesktopItem {
@@ -218,15 +219,17 @@ public class FileItem : DesktopItem {
 			string[] args = { preferred_terminal }; // Add our preferred terminal as first arg
 
 			// alacritty supports -e, --working-directory WITHOUT equal
-			// gnome-terminal supports -e, has special --tab, supports, --working-directory (no -w) WITH equal
+			// gnome-terminal supports --tab and --working-directory (no -w) WITH equal, but not -e
 			// mate-terminal supports --tab and -e, --working-directory (no -w) WITH equal
 			// konsole supports --new-tab and -e, --workdir WITHOUT equal
+			// kitty supports --directory WITH equal
 			// terminator supports --new-tab and -e,  --working-directory (no -w) WITH equal
 			// tilix uses just -e, supports both --working-directory and -w WITH equal
 			if (
-				((preferred_terminal == "alacritty") && (_type == "file")) && // Alacritty and type is file
+				(preferred_terminal != "alacritty") && // Not Alacritty, no tab CLI flag
 				(preferred_terminal != "gnome-terminal") && // Not GNOME Terminal which uses --tab instead of --new-tab
-				(preferred_terminal != "tilix") // No new tab CLI flag (that I saw anyways)
+				(preferred_terminal != "tilix") && // No new tab CLI flag (that I saw anyways)
+				(preferred_terminal != "kitty") // No new tab CLI flag for Kitty, either
 			) {
 				args += "--new-tab"; // Add --new-tab
 			} else if ((preferred_terminal == "gnome-terminal") && (_type == "file")) { // GNOME Terminal, self explanatory really
@@ -241,6 +244,9 @@ public class FileItem : DesktopItem {
 						args += "--working-directory";
 						args += path;
 						break;
+					case "kitty": // Kitty
+						args += "--directory=%s".printf(path);
+						break;
 					case "konsole": // Konsole
 						args += "--workdir";
 						args += path;
@@ -250,8 +256,20 @@ public class FileItem : DesktopItem {
 						break;
 				}
 			} else { // Not a directory
-				args += "-e";
-				args += path;
+				var editor = Environment.get_variable("EDITOR");
+				if (editor == null) {
+					editor = "nano";
+				}
+
+				if (preferred_terminal == "gnome-terminal") { // gnome-terminal will not work with -e
+					args += "--";
+					args += editor;
+					args += path;
+				} else {
+					args += "-e";
+					args += editor;
+					args += path;
+				}
 			}
 
 			try {

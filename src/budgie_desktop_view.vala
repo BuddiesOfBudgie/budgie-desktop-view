@@ -29,6 +29,7 @@ public const int ITEM_MARGIN = 10;
 public const string[] SUPPORTED_TERMINALS = {
 	"alacritty",
 	"gnome-terminal",
+	"kitty",
 	"konsole",
 	"mate-terminal",
 	"terminator",
