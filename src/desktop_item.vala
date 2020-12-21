@@ -216,6 +216,10 @@ public class DesktopItem : FlowBoxChild {
 			throw e; // Throw up e (eww)
 		}
 
+		if (pix.get_width() > props.icon_size) { // Greater than our icon size
+			pix = pix.scale_simple(props.icon_size, props.icon_size, InterpType.BILINEAR);
+		}
+
 		set_image_pixbuf(pix);
 	}
 
