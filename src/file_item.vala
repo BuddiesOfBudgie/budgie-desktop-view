@@ -152,11 +152,17 @@ public class FileItem : DesktopItem {
 	// This is only intended to be used for left single click and right click
 	public bool on_button_release(EventButton ev) {
 		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
+			if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
+				return Gdk.EVENT_STOP;
+			}
+
 			launch(false);
 			return Gdk.EVENT_STOP;
 		} else if (ev.button == 3) { // Right click
 			if ((app_info == null) && (keyfile == null)) { // If this isn't an application or custom key file
 				props.file_menu.set_item(this); // Set the FileItem on the FileMenu
+
+				props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
 				props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
 			}
 
@@ -170,6 +176,10 @@ public class FileItem : DesktopItem {
 	// This is only used for double left click
 	public bool on_button_press(EventButton ev) {
 		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
+			if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
+				return Gdk.EVENT_STOP;
+			}
+
 			launch(false); // Launch normally
 			return Gdk.EVENT_STOP;
 		}
@@ -315,7 +325,7 @@ public class FileItem : DesktopItem {
 	private async void load_image_for_file() {
 		if (
 			(!_ftype.has_prefix("image/")) || // Not an image
-			(info.get_size() > 1000000) // Greater than 1MB
+			(info.get_size() > props.max_thumbnail_size * 1000000) // Greater than our max thumbnail size
 		) {
 			return;
 		}

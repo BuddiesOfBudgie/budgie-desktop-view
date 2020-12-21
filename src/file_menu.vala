@@ -18,27 +18,112 @@ using Gdk;
 using Gtk;
 
 public class FileMenu : Gtk.Menu {
+	protected unowned UnifiedProps props;
+
 	private FileItem? file_item;
+	private Gtk.MenuItem cancel_copy_item;
+	private Gtk.MenuItem open_item;
+	private Gtk.MenuItem open_in_terminal_item;
+	private Gtk.MenuItem trash_item;
 
-	public FileMenu() {
+	private bool _is_copying;
+
+	//public signal void remove_item_for_file(File? file);
+
+	public FileMenu(UnifiedProps p) {
 		Object();
+		props = p;
 
-		Gtk.MenuItem open_item = new Gtk.MenuItem.with_label(_("Open"));
-		Gtk.MenuItem open_in_terminal_item = new Gtk.MenuItem.with_label(_("Open in Terminal"));
+		cancel_copy_item = new Gtk.MenuItem.with_label(_("Cancel Copy"));
+		open_item = new Gtk.MenuItem.with_label(_("Open"));
+		open_in_terminal_item = new Gtk.MenuItem.with_label(_("Open in Terminal"));
 
+		trash_item = new Gtk.MenuItem.with_label(_("Move to Trash"));
+
+		cancel_copy_item.activate.connect(on_cancel_copy);
 		open_item.activate.connect(on_open_activated);
 		open_in_terminal_item.activate.connect(on_open_in_terminal_activated);
+		trash_item.activate.connect(move_to_trash);
 
 		open_item.show_all();
 		open_in_terminal_item.show_all();
 
-		insert(open_item, 0);
-		insert(open_in_terminal_item, 1);
+		insert(cancel_copy_item, 0);
+		insert(open_item, 1);
+		insert(open_in_terminal_item, 2);
+		insert(trash_item, 4);
+
+		is_copying = false;
+	}
+
+	public bool is_copying {
+		public get {
+			return _is_copying;
+		}
+
+		public set {
+			_is_copying = value;
+
+			if (_is_copying) {
+				cancel_copy_item.show();
+				open_item.hide();
+				open_in_terminal_item.hide();
+				trash_item.hide();
+			} else {
+				cancel_copy_item.hide();
+				open_item.show();
+				open_in_terminal_item.show();
+
+				if (file_item != null) {
+					if(file_item.is_special) { // Is a special directory
+						trash_item.hide();
+					} else {
+						trash_item.show();
+					}
+				}
+			}
+		}
+	}
+
+	// move_to_trash will move the current file associated with the file item to trash
+	public void move_to_trash() {
+		if (file_item == null) {
+			return;
+		}
+
+		file_item.file.trash_async.begin(Priority.DEFAULT, null, (obj, res) => {
+			try {
+				file_item.file.trash_async.end(res);
+			} catch (Error e) {
+				warning("Failed to move %s to trash: %s", file_item.file.get_path(), e.message);
+			}
+		});
+	}
+
+	// on_cancel_copy will handle clicking the Cancel Copy option
+	private void on_cancel_copy() {
+		if (file_item == null) {
+			return;
+		}
+
+		//remove_item_for_file(file_item.file);
+
+		Cancellable? c = props.files_currently_copying.get(file_item.info.get_display_name()); // Get the cancellable
+
+		if (c != null) { // If we got the cancellable
+			c.cancel(); // Cancel the copy operation
+		}
+
+		move_to_trash(); // Trash the item
 	}
 
 	// on_open_activated will handle clicking the Open option
 	private void on_open_activated() {
 		if (file_item == null) {
+			return;
+		}
+
+		if (is_copying) { // This file is currently copying so we shouldn't open it
 			return;
 		}
 
@@ -49,6 +134,10 @@ public class FileMenu : Gtk.Menu {
 	// on_open_in_terminal_activated will handle clicking the Open in Terminal option
 	private void on_open_in_terminal_activated() {
 		if (file_item == null) {
+			return;
+		}
+
+		if (is_copying) { // This file is currently copying so we shouldn't open it
 			return;
 		}
 

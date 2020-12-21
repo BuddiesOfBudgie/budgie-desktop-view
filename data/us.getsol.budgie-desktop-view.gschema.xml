@@ -26,6 +26,12 @@
 			<description>Size of the individual folder and file icons</description>
 		</key>
 
+		<key type="i" name="max-thumbnail-size">
+			<default>10</default>
+			<summary>Maximum size of images to generate thumbnails for.</summary>
+			<description>Maximum size of images to generate thumbnails for.</description>
+		</key>
+
 		<key type="b" name="show">
 			<default>false</default>
 			<summary>Enable Desktop Icon View</summary>

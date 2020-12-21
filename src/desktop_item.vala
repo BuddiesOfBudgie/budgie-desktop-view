@@ -20,6 +20,7 @@ using Gtk;
 public class DesktopItem : FlowBoxChild {
 	protected unowned UnifiedProps props;
 	protected int _label_width;
+	protected bool _copying;
 	protected bool _mount;
 	protected string _name;
 	protected string _type;
@@ -30,6 +31,8 @@ public class DesktopItem : FlowBoxChild {
 	protected EventBox event_box;
 	protected Box main_layout;
 
+	protected Pixbuf? original_image_pixbuf;
+
 	public Icon? icon;
 
 	public DesktopItem() {
@@ -39,6 +42,7 @@ public class DesktopItem : FlowBoxChild {
 		set_no_show_all(true);
 		valign = Align.CENTER; // Center naturally, don't fill up space
 
+		_copying = false;
 		_special_dir = false; // This DesktopItem isn't special.
 
 		event_box = new EventBox();
@@ -61,6 +65,28 @@ public class DesktopItem : FlowBoxChild {
 		event_box.set_events(EventMask.BUTTON_PRESS_MASK & EventMask.ENTER_NOTIFY_MASK & EventMask.LEAVE_NOTIFY_MASK);
 		event_box.enter_notify_event.connect(on_enter);
 		event_box.leave_notify_event.connect(on_leave);
+	}
+
+	public bool is_copying {
+		public get {
+			return _copying;
+		}
+
+		public set {
+			_copying = value;
+			has_tooltip = value;
+			saturate_image(_copying ? (float) 0.5 : (float) 1.0);
+
+			if (_copying) {
+				label.get_style_context().add_class("is-disabled");
+				set_tooltip_text(_("File currently copying"));
+			} else {
+				label.get_style_context().remove_class("is-disabled");
+				set_tooltip_text(""); // Clear tooltip
+			}
+
+			queue_draw();
+		}
 	}
 
 	public bool is_mount {
@@ -106,7 +132,12 @@ public class DesktopItem : FlowBoxChild {
 		}
 
 		label.get_style_context().add_class("selected");
-		get_window().set_cursor(props.hand_cursor);
+
+		if (_copying) { // Currently copying
+			get_window().set_cursor(props.blocked_cursor);
+		} else { // Not currently copying
+			get_window().set_cursor(props.hand_cursor);
+		}
 		return EVENT_STOP;
 	}
 
@@ -134,6 +165,19 @@ public class DesktopItem : FlowBoxChild {
 		if (label != null) {
 			label.show();
 		}
+	}
+
+	// saturate_image will set the saturation of an image
+	// This will always be based on the "original" pixbuf
+	public void saturate_image(float val) {
+		if (image == null) { // If the image does not exist
+			return;
+		}
+
+		Pixbuf? saturated_pixbuf = original_image_pixbuf.copy();
+		original_image_pixbuf.saturate_and_pixelate(saturated_pixbuf, val, false);
+
+		image.set_from_pixbuf(saturated_pixbuf);
 	}
 
 	// set_icon is responsible for setting an Icon Theme's representation of an Icon
@@ -204,6 +248,8 @@ public class DesktopItem : FlowBoxChild {
 
 	// set_image_pixbuf will set the image pixbuf
 	public void set_image_pixbuf(Pixbuf pix) {
+		original_image_pixbuf = pix;
+
 		if (image == null) { // If we haven't created the Image yet
 			image = new Image.from_pixbuf(pix); // Load the image from pixbuf
 			image.margin_bottom = 10;

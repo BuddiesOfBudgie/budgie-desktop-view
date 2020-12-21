@@ -55,6 +55,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	FlowBox flow;
 
 	File? desktop_file;
+	string? desktop_file_uri;
 	FileMonitor? desktop_monitor;
 	VolumeMonitor? volume_monitor;
 
@@ -80,6 +81,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		);
 
 		shared_props = new UnifiedProps(); // Create shared props
+		shared_props.thumbnail_size_changed.connect(refresh_icon_sizes); // When our thumbnail size changed, refresh our icons
 
 		Gtk.Settings? default_settings = Gtk.Settings.get_default(); // Get the default settings
 		default_settings.gtk_application_prefer_dark_theme = true;
@@ -107,8 +109,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		show_trash = shared_props.desktop_settings.get_boolean("show-trash-folder");
 
 		visible_setting = shared_props.desktop_settings.get_boolean("show");
-
-		desktop_file = File.new_for_path(Environment.get_user_special_dir(UserDirectory.DESKTOP)); // Get the Desktop folder "file"
+		desktop_file_uri = Environment.get_user_special_dir(UserDirectory.DESKTOP);
+		desktop_file = File.new_for_path(desktop_file_uri); // Get the Desktop folder "file"
 
 		try {
 			desktop_monitor = desktop_file.monitor(FileMonitorFlags.WATCH_MOVES, null); // Create our file monitor
@@ -135,7 +137,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		show_menubar = false;
 
 		desktop_menu = new DesktopMenu(); // Create our new desktop menu
-		shared_props.file_menu = new FileMenu(); // Create our new file menu and set it in our shared props
+		shared_props.file_menu = new FileMenu(shared_props); // Create our new file menu and set it in our shared props
 
 		flow = new FlowBox();
 		flow.get_style_context().add_class("flow");
@@ -172,6 +174,11 @@ public class DesktopView : Gtk.ApplicationWindow {
 		});
 
 		button_release_event.connect(on_button_release); // Bind on_button_release to our button_release_event
+
+		// TODO: Figure out targets
+		Gtk.TargetEntry[] targets = { { "application/x-icon-tasklist-launcher-id", 0, 0 }, { "text/uri-list", 0, 0 }, { "application/x-desktop", 0, 0 }};
+		Gtk.drag_dest_set(this, Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY);
+		drag_data_received.connect(on_drag_data_received);
 
 		set_window_transparent();
 
@@ -484,6 +491,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		screen = default_screen;
 
 		default_display = Display.get_default(); // Get the display related to it
+		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
@@ -549,6 +557,108 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 	}
 
+	// on_drag_data_received handles our drag_data_received
+	private void on_drag_data_received(Gtk.Widget widget, Gdk.DragContext c, int x, int y, Gtk.SelectionData d, uint info, uint time) {
+		string uri = (string) d.get_data(); // Get our data as a string
+		string[] uris = uri.chomp().split("\n"); // Split on newlines in case we pass multiple items
+
+		foreach (string file_uri in uris) { // For each file URI
+			file_uri = file_uri.chomp();
+
+			try {
+				File this_file = File.new_for_uri(file_uri); // Load this file
+				string file_base = this_file.get_basename();
+				string file_dir = file_uri.replace(file_base, ""); // Get the directory
+				file_dir = file_dir.replace("file://", "");
+
+				if (file_base == desktop_file_uri) { // Copying from the Desktop to Desktop
+					continue; // How about...no?
+				}
+
+				var can = new Cancellable(); // Create a new cancellable stack
+				FileInfo? finfo = null;
+
+				try {
+					finfo = this_file.query_info("standard::*", FileQueryInfoFlags.NONE, can);
+				} catch (Error e) {
+					warning("Failed to get requested information on this file: %s", e.message);
+					continue; // Skip
+				}
+
+				if (can.is_cancelled() || (finfo == null)) { // Cancelled or failed to get info
+					warning("Failed to get information on this file.");
+					continue; // Skip
+				}
+
+				string proposed_file_name = file_base;
+				string copy_file_name = proposed_file_name;
+
+				if (file_items.contains(file_base)) { // Already have a file called this
+					bool have_file_as_copy = true;
+
+					while (have_file_as_copy) {
+						string primitive_name = copy_file_name;
+						string ext = "";
+
+						if (primitive_name.contains(".")) { // Has a . so maybe an extension
+							int last_dot_pos = primitive_name.last_index_of("."); // Get the last .
+							primitive_name = copy_file_name.substring(0, last_dot_pos);
+							warning("Super primitive Name: %s", primitive_name);
+							ext = copy_file_name.substring(last_dot_pos);
+							warning("Extension: %s", ext);
+						}
+
+						primitive_name += " (Copy)"+ext; // Add (Copy)
+
+						File? copy_file = File.new_for_path(Path.build_filename(desktop_file_uri, primitive_name)); // Create a file for this primitive copy
+
+						if (!copy_file.query_exists()) { // File does not exist
+							proposed_file_name = primitive_name;
+							have_file_as_copy = false;
+							break;
+						} else {
+							copy_file_name = primitive_name;
+						}
+					}
+				}
+
+				FileType type = finfo.get_file_type();
+
+				string target_path = Path.build_filename(desktop_file_uri, proposed_file_name);
+				File target_file = File.new_for_path(target_path); // "Create" our target file
+
+				if (type == FileType.DIRECTORY) { // If the file is a directory
+					try {
+						target_file.make_symbolic_link(this_file.get_path());
+					} catch (Error e) {
+						warning("Failed to symlink to %s: %s", target_path, e.message);
+					}
+				} else { // Is a file
+					Cancellable file_cancellable = new Cancellable(); // Create a new cancellable so we can cancel the file
+					shared_props.files_currently_copying.set(proposed_file_name, file_cancellable); // Add the originating file
+
+					this_file.copy_async.begin(target_file, FileCopyFlags.NOFOLLOW_SYMLINKS, 0, file_cancellable, null, (obj, res) => {
+						shared_props.files_currently_copying.remove(proposed_file_name); // Remove the file we were copying from our list
+						update_item_saturation(proposed_file_name); // Update our item saturation
+
+						try {
+							this_file.copy_async.end(res);
+						} catch (Error e) {
+							if (!file_cancellable.is_cancelled()) { // Did not fail due to a cancelled copy
+								warning("Failed to copy %s: %s", proposed_file_name, e.message);
+								delete_item(target_file); // Delete the item
+							}
+						}
+					});
+				}
+			} catch (Error e) {
+				warning("Failed to load %s: %s", file_uri, e.message);
+			}
+		}
+
+		Gtk.drag_finish(c, true, true, time);
+	}
+
 	// on_file_changed will handle when a file changes in the Desktop directory
 	private void on_file_changed(File file, File? other_file, FileMonitorEvent type) {
 		if (type == FileMonitorEvent.PRE_UNMOUNT || type == FileMonitorEvent.UNMOUNTED) {
@@ -599,6 +709,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 					}
 
 					create_file_item(create_file_ref, created_file_info, false); // Create our item
+					update_item_saturation(file_name);
 					enforce_content_limit();
 				} catch (Error e) { // Failed to get created file info
 					warning("Failed to create file item: %s", e.message);
@@ -610,7 +721,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			return; // Return for safety
 		}
 
-		if (!do_create && !do_delete && (
+		if (file.query_exists() && !do_create && !do_delete && ( // File is changed since we're not creating or deleting it
 			(type == FileMonitorEvent.ATTRIBUTE_CHANGED) || // Attributes changed
 			(type == FileMonitorEvent.CHANGES_DONE_HINT)  // Changes probably done
 		)) { // File changed
@@ -795,6 +906,17 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 			return strcmp(c1_ck, c2_ck); // Return the value from collate if both are directories or both are files
 		};
+	}
+
+	// update_item_saturation will update the saturation of a FileItem based on if it is being copied
+	private void update_item_saturation(string item_name) {
+		FileItem file_item = file_items.get(item_name); // Get the file item
+
+		if (file_item == null) { // Item doesn't exist
+			return;
+		}
+
+		file_item.is_copying = shared_props.files_currently_copying.contains(item_name);
 	}
 
 	// sorter handles our FlowBox sorting

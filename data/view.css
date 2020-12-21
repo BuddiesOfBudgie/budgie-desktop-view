@@ -22,6 +22,10 @@ limitations under the License.
 	font-size: 14px;
 }
 
+.desktop-item-label.is-disabled { /* Is the item currently being copied */
+	color: rgba(232, 232, 232, 0.7);
+}
+
 .desktop-item-label:not(.selected) {
 	color: rgba(232, 232, 232, 0.9);
 	font-weight: 600;

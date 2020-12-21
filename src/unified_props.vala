@@ -24,18 +24,28 @@ public enum ClickPolicyType {
 
 // UnifiedProps contains a multitude of shared properties used for our various item types
 public class UnifiedProps : Object {
+	public HashTable<string, Cancellable?> files_currently_copying; // All files currently being copied
+
 	// Shared properties
 	private GLib.Settings? _settings;
 	private bool _is_single_click;
+	private int _max_thumbnail_size;
 	public FileMenu? file_menu;
+	public Gdk.Cursor? blocked_cursor;
 	public Gdk.Cursor? hand_cursor;
 	public IconTheme icon_theme;
 	public int? icon_size;
 	public int? s_factor;
 
+	public signal void thumbnail_size_changed();
+
 	// Create a new UnifiedProps.
 	// Doesn't require any initial constructor properties since we want the flexibility of setting these across various parts of the codebase
-	public UnifiedProps() {}
+	public UnifiedProps() {
+		files_currently_copying = new HashTable<string, Cancellable>(str_hash, str_equal); // Create our empty list
+		_is_single_click = true;
+		_max_thumbnail_size = 10;
+	}
 
 	public GLib.Settings desktop_settings {
 		public get {
@@ -44,14 +54,25 @@ public class UnifiedProps : Object {
 
 		public set {
 			_settings = value;
+			update_max_thumbnail_size();
 			update_click_policy();
 			_settings.changed["click-policy"].connect(update_click_policy);
+			_settings.changed["max-thumbnail-size"].connect(() => {
+				update_max_thumbnail_size();
+				thumbnail_size_changed();
+			});
 		}
 	}
 
 	public bool is_single_click {
 		public get {
 			return _is_single_click;
+		}
+	}
+
+	public int max_thumbnail_size {
+		public get {
+			return _max_thumbnail_size;
 		}
 	}
 
@@ -73,5 +94,10 @@ public class UnifiedProps : Object {
 			warning("Failed to get click-policy enum: %s", e.message);
 			_is_single_click = true; // Default to true
 		}
+	}
+
+	// update_max_thumbnail_size will update our max thumbnail size
+	private void update_max_thumbnail_size() {
+		_max_thumbnail_size = _settings.get_int("max-thumbnail-size");
 	}
 }
