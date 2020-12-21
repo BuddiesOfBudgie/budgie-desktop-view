@@ -18,6 +18,7 @@ Budgie Desktop View provides:
 3. An ordered list of Desktop directory contents, prioritizing folders before files while maintaining order of content that respects locales.
 4. Independently adjustable icon sizing from your file manager
 5. Right-click menu options for the background canvas to quickly access Budgie Desktop and System Settings, as well right-click menu options for opening a file using the default app, or via the Terminal.
+6. Drag & Drop support. Copies files and symlink directories (to avoid the need for recursive copy functionality).
 
 Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie is not supported and is outside this project's scope.
 
@@ -30,7 +31,6 @@ Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie 
 As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO is currently limited to the following:
 
 - Ensuring long-press gestures on items work for 2-in-1 devices.
-- Drag & Drop support: TBD on full scope. Current thinking is it will copy files and symlink directories (to avoid the need for recursive copy functionality).
 - GTK4 port.
 
 ## Building
