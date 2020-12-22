@@ -27,6 +27,7 @@ public class MountItem : DesktopItem {
 
 	public MountItem(UnifiedProps p, Mount provided_mount, string true_uuid) {
 		props = p;
+		is_mount = true;
 		mount = provided_mount;
 		uuid = true_uuid;
 		_type = "mount"; // Report internally as a mount

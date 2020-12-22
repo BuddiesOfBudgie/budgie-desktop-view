@@ -131,7 +131,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		// Window settings
-		set_accept_focus(false); // Don't accept focus
 		set_keep_below(true); // Stay below other windows
 		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
 		show_menubar = false;
@@ -143,7 +142,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.get_style_context().add_class("flow");
 		flow.halign = Align.START; // Start at the beginning
 		flow.expand = false;
-		flow.selection_mode = SelectionMode.NONE; // Set to none because it likes to default to one
 		flow.set_orientation(Gtk.Orientation.VERTICAL);
 		flow.set_sort_func(sorter); // Set our sorting function
 		flow.valign = Align.START; // Don't let it fill
@@ -169,13 +167,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		this.enforce_content_limit(); // Immediately flowbox content resizing
 
 		flow.can_focus = false;
-		flow.grab_focus.connect(() => { // On grab focus (automatic by flowbox)
-			flow.unselect_all(); // Unselect all items
-		});
-
+		key_press_event.connect(on_key_pressed);
 		button_release_event.connect(on_button_release); // Bind on_button_release to our button_release_event
 
-		// TODO: Figure out targets
 		Gtk.TargetEntry[] targets = { { "application/x-icon-tasklist-launcher-id", 0, 0 }, { "text/uri-list", 0, 0 }, { "application/x-desktop", 0, 0 }};
 		Gtk.drag_dest_set(this, Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY);
 		drag_data_received.connect(on_drag_data_received);
@@ -185,6 +179,12 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (visible_setting) {
 			show();
 		}
+	}
+
+	// clear_selection will clear the selection and focus of all flowbox children that are selected
+	public void clear_selection() {
+		flow.unselect_all();
+		set_focus(null);
 	}
 
 	// create_file_item will create our FileItem and add it if necessary
@@ -237,7 +237,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		mount_items.set(uuid, mount_item);
 		flow.add(mount_item); // Add the Mount Item
 
-		if (visible_setting) { // Showing icons currently
+		if (visible_setting && show_mounts) { // Showing icons currently and should show mounts
 			mount_item.request_show(); // Request showing this item
 		}
 
@@ -546,6 +546,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	private bool on_button_release(EventButton event) {
 		if (event.button == 1) { // Left click
 			desktop_menu.popdown(); // Hide the menu
+			clear_selection(); // Clear any selection
 			return Gdk.EVENT_PROPAGATE;
 		} else if (event.button == 3) { // Right click
 			desktop_menu.place_on_monitor(primary_monitor); // Ensure menu is on primary monitor
@@ -787,6 +788,53 @@ public class DesktopView : Gtk.ApplicationWindow {
 		refresh_icon_sizes(); // Refresh our icon sizes
 	}
 
+	// on_key_pressed will handle when a key is pressed
+	public bool on_key_pressed(EventKey key) {
+		List<weak FlowBoxChild> selected_children = flow.get_selected_children(); // Get our selected children
+		bool have_selected_children = (selected_children.length() != 0);
+
+		bool is_arrow_key = key.keyval >= 65361 && key.keyval <= 65364; // Left arrow starts at 65361, down at 65364
+		bool is_enter_key = key.keyval == 65293;
+		bool is_delete_key = key.keyval == 65535;
+		bool is_esc_key = key.keyval == 65307;
+
+		if (is_arrow_key && !have_selected_children) { // No child selected and not the escape key
+			FlowBoxChild? first_item = flow.get_child_at_index(0);
+
+			if (first_item != null) { // First item exists
+				flow.select_child(first_item); // Select it
+				set_focus(first_item); // Need this so the window knows what is selected and arrow nav works on second press
+			}
+
+			return Gdk.EVENT_STOP;
+		} else if ((is_delete_key || is_enter_key) && have_selected_children) { // Pressed the delete or enter key while having a child selected
+			DesktopItem generic_item = (DesktopItem) selected_children.nth_data(0); // Get the child as a DesktopItem
+
+			if (generic_item.is_mount) { // If this is a mount
+				if (is_delete_key) { // Can't delete mount
+					return Gdk.EVENT_STOP;
+				}
+
+				MountItem item_as_mount = (MountItem) generic_item; // Cast as a MountItem
+				item_as_mount.launch(); // Launch the item
+			} else { // File Item
+				FileItem item_as_file = (FileItem) generic_item; // Cast as a FileItem
+
+				if (is_delete_key) { // Pressed the delete key
+					item_as_file.move_to_trash(); // Move the item to trash
+				} else { // Pressed enter key
+					item_as_file.launch(false); // Launch item normally
+				}
+			}
+
+			clear_selection(); // Clear the selection
+		} else if (is_esc_key) { // Escaping
+			clear_selection(); // Clear the selection
+		}
+
+		return Gdk.EVENT_PROPAGATE;
+	}
+
 	// on_mount_added will handle signal events for when we add a mount
 	public void on_mount_added(Mount mount) {
 		string mount_uuid = this.get_mount_uuid(mount); // Get the UUID for this mount
@@ -916,7 +964,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			return;
 		}
 
-		file_item.is_copying = shared_props.files_currently_copying.contains(item_name);
+		file_item.is_copying = shared_props.is_copying(item_name);
 	}
 
 	// sorter handles our FlowBox sorting

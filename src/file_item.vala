@@ -342,6 +342,23 @@ public class FileItem : DesktopItem {
 		return;
 	}
 
+	// move_to_strash will move the file to the trash
+	public void move_to_trash() {
+		Cancellable? c = props.files_currently_copying.get(info.get_display_name()); // Get the cancellable
+
+		if (c != null) { // If we got the cancellable, meaning this file is currently copying
+			c.cancel(); // Cancel the copy operation
+		}
+
+		file.trash_async.begin(Priority.DEFAULT, null, (obj, res) => {
+			try {
+				file.trash_async.end(res);
+			} catch (Error e) {
+				warning("Failed to move %s to trash: %s", file.get_path(), e.message);
+			}
+		});
+	}
+
 	// update_icon updates our icon based on FileItem specific functionality
 	public void update_icon() throws Error {
 		set_icon_factors(); // Set various icon scale factors

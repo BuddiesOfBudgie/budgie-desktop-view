@@ -126,6 +126,7 @@ public class DesktopItem : FlowBoxChild {
 		}
 	}
 
+	// on_enter handles mouse entry
 	private bool on_enter(EventCrossing event) {
 		if (event.mode != Gdk.CrossingMode.NORMAL) {
 			return EVENT_STOP;
@@ -141,6 +142,7 @@ public class DesktopItem : FlowBoxChild {
 		return EVENT_STOP;
 	}
 
+	// on_leave handles mouse leaving
 	private bool on_leave(EventCrossing event) {
 		if (event.mode != Gdk.CrossingMode.NORMAL) {
 			get_window().set_cursor(null);

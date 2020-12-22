@@ -76,6 +76,11 @@ public class UnifiedProps : Object {
 		}
 	}
 
+	// is_copying returns if this file is currently copying
+	public bool is_copying(string file_name) {
+		return files_currently_copying.contains(file_name);
+	}
+
 	// is_desired_primary_click_type will return if the provided event matches our desired primary click type
 	public bool is_desired_primary_click_type(EventButton ev) {
 		if (ev.button != 1) { // Not left click

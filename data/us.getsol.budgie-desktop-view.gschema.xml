@@ -28,8 +28,8 @@
 
 		<key type="i" name="max-thumbnail-size">
 			<default>10</default>
-			<summary>Maximum size of images to generate thumbnails for.</summary>
-			<description>Maximum size of images to generate thumbnails for.</description>
+			<summary>Maximum size of images in MBs to generate thumbnails for.</summary>
+			<description>Maximum size of images in MBs to generate thumbnails for.</description>
 		</key>
 
 		<key type="b" name="show">

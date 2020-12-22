@@ -40,7 +40,7 @@ public class FileMenu : Gtk.Menu {
 
 		trash_item = new Gtk.MenuItem.with_label(_("Move to Trash"));
 
-		cancel_copy_item.activate.connect(on_cancel_copy);
+		cancel_copy_item.activate.connect(move_to_trash);
 		open_item.activate.connect(on_open_activated);
 		open_in_terminal_item.activate.connect(on_open_in_terminal_activated);
 		trash_item.activate.connect(move_to_trash);
@@ -86,35 +86,13 @@ public class FileMenu : Gtk.Menu {
 	}
 
 	// move_to_trash will move the current file associated with the file item to trash
+	// If the file is copying, it will be cancelled
 	public void move_to_trash() {
 		if (file_item == null) {
 			return;
 		}
 
-		file_item.file.trash_async.begin(Priority.DEFAULT, null, (obj, res) => {
-			try {
-				file_item.file.trash_async.end(res);
-			} catch (Error e) {
-				warning("Failed to move %s to trash: %s", file_item.file.get_path(), e.message);
-			}
-		});
-	}
-
-	// on_cancel_copy will handle clicking the Cancel Copy option
-	private void on_cancel_copy() {
-		if (file_item == null) {
-			return;
-		}
-
-		//remove_item_for_file(file_item.file);
-
-		Cancellable? c = props.files_currently_copying.get(file_item.info.get_display_name()); // Get the cancellable
-
-		if (c != null) { // If we got the cancellable
-			c.cancel(); // Cancel the copy operation
-		}
-
-		move_to_trash(); // Trash the item
+		file_item.move_to_trash();
 	}
 
 	// on_open_activated will handle clicking the Open option
