@@ -17,6 +17,14 @@ limitations under the License.
 using Gdk;
 using Gtk;
 
+[DBus (name="org.budgie_desktop.Raven")]
+public interface Raven : GLib.Object {
+	public abstract async void Dismiss() throws Error;
+}
+
+public const string RAVEN_DBUS_NAME = "org.budgie_desktop.Raven";
+public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
+
 public enum DesktopItemSize {
 	SMALL = 0, // 32x32
 	NORMAL = 1, // 48x48
@@ -42,6 +50,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	Monitor primary_monitor;
 	Rectangle primary_monitor_geo;
 	UnifiedProps shared_props;
+	Raven? raven = null;
 
 	DesktopItemSize? item_size; // Default our Item Size to NORMAL
 	int? max_allocated_item_height;
@@ -179,6 +188,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (visible_setting) {
 			show();
 		}
+
+		Bus.watch_name(BusType.SESSION, RAVEN_DBUS_NAME, BusNameWatcherFlags.NONE, has_raven, on_raven_lost);
 	}
 
 	// clear_selection will clear the selection and focus of all flowbox children that are selected
@@ -327,6 +338,13 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (file_item != null) { // FileItem exists
 			flow.remove(file_item); // Remove from the flowbox
 			file_items.remove(deleted_file_name); // Remove from items
+		}
+	}
+
+	// dismiss_raven will request to dismiss Raven
+	public void dismiss_raven() {
+		if (raven != null) { // If we got Raven's DBus Proxy
+			raven.Dismiss.begin();
 		}
 	}
 
@@ -557,16 +575,28 @@ public class DesktopView : Gtk.ApplicationWindow {
 		max_allocated_item_height = shared_props.icon_size + ITEM_MARGIN*7; // Icon size + our item margin*8 (to hopefully account for label height and the like)
 	}
 
+	// has_raven handles our request to begin getting Raven if we don't have it already
+	private void has_raven() {
+		if (raven == null) {
+			Bus.get_proxy.begin<Raven>(BusType.SESSION, RAVEN_DBUS_NAME, RAVEN_DBUS_OBJECT_PATH, 0, null, on_raven_get);
+		}
+	}
+
 	// on_button_release handles the releasing of a mouse button
 	private bool on_button_release(EventButton event) {
 		if (event.button == 1) { // Left click
 			desktop_menu.popdown(); // Hide the menu
 			clear_selection(); // Clear any selection
+			dismiss_raven(); // Dismiss raven
+
 			return Gdk.EVENT_PROPAGATE;
 		} else if (event.button == 3) { // Right click
+			dismiss_raven(); // Dismiss raven
+
 			desktop_menu.place_on_monitor(primary_monitor); // Ensure menu is on primary monitor
 			desktop_menu.set_screen(default_screen); // Ensure menu is on our screen
 			desktop_menu.popup_at_pointer(event); // Popup where our mouse is
+
 			return Gdk.EVENT_STOP;
 		} else {
 			return Gdk.EVENT_PROPAGATE;
@@ -871,6 +901,20 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.remove(mount_item); // Remove the mount item from the flow box
 		mount_items.remove(mount_item.uuid); // Remove the item from mount_items
 		enforce_content_limit();
+	}
+
+	// on_raven_get handles when our get_proxy request to get Raven completed
+	private void on_raven_get(Object? obj, AsyncResult? res) {
+		try {
+			raven = Bus.get_proxy.end(res);
+		} catch (Error e) {
+			warning("Failed to gain Raven: %s", e.message);
+		}
+	}
+
+	// on_raven_lost handles when we just the proxy for Raven
+	private void on_raven_lost() {
+		raven = null; // Reset back to null
 	}
 
 	// on_resolution_change will handle signal events for when the resolution of our primary monitor has changed
