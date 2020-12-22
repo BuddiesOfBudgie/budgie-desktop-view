@@ -437,7 +437,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 				string mount_uuid = this.get_mount_uuid(volume_mount); // Get the UUID for this mount
 
-				if (mount_uuid == "") { // Failed to get the mount
+				if (mount_uuid == "FAILED_TO_GET_UUID") { // Failed to get the mount
 					return;
 				}
 
@@ -510,14 +510,29 @@ public class DesktopView : Gtk.ApplicationWindow {
 			return ""; // Return an empty string
 		}
 
-		string volume_uuid = volume.get_uuid();
 		string? mount_uuid = mount.get_uuid(); // Get any mount UUID
 
-		if (mount_uuid == null) { // No mount UUID
-			mount_uuid = volume_uuid; // Use volume UUID
+		if (mount_uuid != null) { // Got the UUID for the mount
+			return mount_uuid;
 		}
 
-		return mount_uuid;
+		string? volume_uuid = volume.get_uuid(); // Get the volume UUID
+
+		if (volume_uuid != null) { // Got the UUID for the volume
+			return volume_uuid;
+		}
+
+		Drive? drive = mount.get_drive();
+
+		if (drive != null) { // Got the drive
+			string? drive_identifier = drive.get_identifier(DRIVE_IDENTIFIER_KIND_UNIX_DEVICE);
+
+			if (drive_identifier != null) {
+				return drive_identifier;
+			}
+		}
+
+		return "FAILED_TO_GET_UUID";
 	}
 
 	// get_icon_size will get the current icon size from our settings and apply it to our private uint
@@ -839,7 +854,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	public void on_mount_added(Mount mount) {
 		string mount_uuid = this.get_mount_uuid(mount); // Get the UUID for this mount
 
-		if (mount_uuid == "") { // Failed to get the mount
+		if (mount_uuid == "FAILED_TO_GET_UUID") { // Failed to get the mount
 			return;
 		}
 
