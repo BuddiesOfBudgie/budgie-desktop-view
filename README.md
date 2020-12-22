@@ -19,6 +19,7 @@ Budgie Desktop View provides:
 4. Independently adjustable icon sizing from your file manager
 5. Right-click menu options for the background canvas to quickly access Budgie Desktop and System Settings, as well right-click menu options for opening a file using the default app, or via the Terminal.
 6. Drag & Drop support. Copies files and symlink directories (to avoid the need for recursive copy functionality).
+7. Keyboard-based navigation, including move-to-trash or cancel copy operation on use of delete key.
 
 Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie is not supported and is outside this project's scope.
 
