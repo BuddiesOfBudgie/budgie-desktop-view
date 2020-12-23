@@ -6,6 +6,7 @@ Budgie Desktop View is the official Budgie desktop icons application / implement
 
 ![#budgie-desktop-dev on Freenode](https://img.shields.io/badge/freenode-%23budgie--desktop--dev-4AF)
 ![#solus-dev on Freenode](https://img.shields.io/badge/freenode-%23solus--dev-28C)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/getsolus/budgie-desktop-view)
 
 ## Scope
 
