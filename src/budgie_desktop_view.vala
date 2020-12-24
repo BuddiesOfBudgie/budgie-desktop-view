@@ -855,19 +855,19 @@ public class DesktopView : Gtk.ApplicationWindow {
 		} else if ((is_delete_key || is_enter_key) && have_selected_children) { // Pressed the delete or enter key while having a child selected
 			DesktopItem generic_item = (DesktopItem) selected_children.nth_data(0); // Get the child as a DesktopItem
 
-			if (generic_item.is_mount) { // If this is a mount
-				if (is_delete_key) { // Can't delete mount
+			if (is_delete_key) { // Pressed the delete key
+				if (generic_item.is_special || generic_item.is_mount) { // Don't move special items (e.g. Trash, Home, etc) or mounts to the trash
 					return Gdk.EVENT_STOP;
 				}
 
-				MountItem item_as_mount = (MountItem) generic_item; // Cast as a MountItem
-				item_as_mount.launch(); // Launch the item
-			} else { // File Item
 				FileItem item_as_file = (FileItem) generic_item; // Cast as a FileItem
-
-				if (is_delete_key) { // Pressed the delete key
-					item_as_file.move_to_trash(); // Move the item to trash
-				} else { // Pressed enter key
+				item_as_file.move_to_trash(); // Move the item to trash
+			} else { // Pressed enter key
+				if (generic_item.is_mount) { // If this is a mount
+					MountItem item_as_mount = (MountItem) generic_item; // Cast as a MountItem
+					item_as_mount.launch(); // Launch the item
+				} else { // This is a file, directory, or launcher
+					FileItem item_as_file = (FileItem) generic_item; // Cast as a FileItem
 					item_as_file.launch(false); // Launch item normally
 				}
 			}
