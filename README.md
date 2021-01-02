@@ -121,4 +121,4 @@ Budgie Desktop View is licensed under the Apache-2.0 license.
 
 ## Authors
 
-Copyright © 2020 Solus Project
+Copyright © 2021 Solus Project
