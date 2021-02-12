@@ -159,12 +159,10 @@ public class FileItem : DesktopItem {
 			launch(false);
 			return Gdk.EVENT_STOP;
 		} else if (ev.button == 3) { // Right click
-			if ((app_info == null) && (keyfile == null)) { // If this isn't an application or custom key file
-				props.file_menu.set_item(this); // Set the FileItem on the FileMenu
-
-				props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
-				props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
-			}
+			props.file_menu.set_item(this); // Set the FileItem on the FileMenu
+			props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
+			props.file_menu.show_open_in_terminal = ((app_info == null) && (keyfile == null));
+			props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
 
 			return Gdk.EVENT_STOP;
 		}

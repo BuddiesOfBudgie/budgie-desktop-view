@@ -27,6 +27,7 @@ public class FileMenu : Gtk.Menu {
 	private Gtk.MenuItem trash_item;
 
 	private bool _is_copying;
+	private bool _show_open_in_terminal;
 
 	//public signal void remove_item_for_file(File? file);
 
@@ -54,6 +55,7 @@ public class FileMenu : Gtk.Menu {
 		insert(trash_item, 4);
 
 		is_copying = false;
+		show_open_in_terminal = true;
 	}
 
 	public bool is_copying {
@@ -81,6 +83,22 @@ public class FileMenu : Gtk.Menu {
 						trash_item.show();
 					}
 				}
+			}
+		}
+	}
+
+	public bool show_open_in_terminal {
+		public get {
+			return _show_open_in_terminal;
+		}
+
+		public set {
+			_show_open_in_terminal = value;
+
+			if (_show_open_in_terminal) {
+				open_in_terminal_item.show();
+			} else {
+				open_in_terminal_item.hide();
 			}
 		}
 	}
