@@ -19,7 +19,7 @@ using Gtk;
 
 public class BudgieDesktopViewApp : Gtk.Application {
 	public BudgieDesktopViewApp () {
-		Object (application_id: "us.getsol.budgie-desktop-view", flags: ApplicationFlags.FLAGS_NONE);
+		Object (application_id: "org.buddiesofbudgie.budgie-desktop-view", flags: ApplicationFlags.FLAGS_NONE);
 	}
 
 	protected override void activate() {

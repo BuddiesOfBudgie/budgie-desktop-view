@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="budgie-desktop-view">
 
-	<enum id="us.getsol.budgie-desktop-view.ClickPolicy">
+	<enum id="org.buddiesofbudgie.budgie-desktop-view.ClickPolicy">
 		<value nick="single" value="1" />
 		<value nick="double" value="2" />
 	</enum>
 
-	<enum id="us.getsol.budgie-desktop-view.DesktopItemSize">
+	<enum id="org.buddiesofbudgie.budgie-desktop-view.DesktopItemSize">
 		<value nick="small" value="0" />
 		<value nick="normal" value="1" />
 		<value nick="large" value="2" />
 		<value nick="massive" value="3" />
 	</enum>
 
-	<schema path="/us/getsol/budgie-desktop-view/" id="us.getsol.budgie-desktop-view">
-		<key enum="us.getsol.budgie-desktop-view.ClickPolicy" name="click-policy">
+	<schema path="/org/buddiesofbudgie/budgie-desktop-view/" id="org.buddiesofbudgie.budgie-desktop-view">
+		<key enum="org.buddiesofbudgie.budgie-desktop-view.ClickPolicy" name="click-policy">
 			<default>'single'</default>
 			<summary>Use single or double click to open Desktop items.</summary>
 			<description>Use single or double click to open Desktop items.</description>
 		</key>
 
-		<key enum="us.getsol.budgie-desktop-view.DesktopItemSize" name="icon-size">
+		<key enum="org.buddiesofbudgie.budgie-desktop-view.DesktopItemSize" name="icon-size">
 			<default>'normal'</default>
 			<summary>Desktop Icon Size</summary>
 			<description>Size of the individual folder and file icons</description>

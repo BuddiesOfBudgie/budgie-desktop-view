@@ -139,6 +139,16 @@ public class FileItem : DesktopItem {
 		}
 	}
 
+	// emit_launch will handle launching a file assuming it isn't in a copying state
+	public bool emit_launch() {
+		if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
+			return Gdk.EVENT_STOP;
+		}
+
+		launch(false);
+		return Gdk.EVENT_STOP;
+	}
+
 	// get_mimetype_icon will attempt to get the icon for the content / mimetype of the file
 	public ThemedIcon get_mimetype_icon() {
 		ThemedIcon themed_icon = (ThemedIcon) info.get_icon(); // Get the icon from the file info
@@ -153,12 +163,7 @@ public class FileItem : DesktopItem {
 	// This is only intended to be used for left single click and right click
 	public bool on_button_release(EventButton ev) {
 		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
-			if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
-				return Gdk.EVENT_STOP;
-			}
-
-			launch(false);
-			return Gdk.EVENT_STOP;
+			return emit_launch();
 		} else if (ev.button == 3) { // Right click
 			props.file_menu.set_item(this); // Set the FileItem on the FileMenu
 			props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
@@ -175,12 +180,7 @@ public class FileItem : DesktopItem {
 	// This is only used for double left click
 	public bool on_button_press(EventButton ev) {
 		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
-			if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
-				return Gdk.EVENT_STOP;
-			}
-
-			launch(false); // Launch normally
-			return Gdk.EVENT_STOP;
+			return emit_launch();
 		}
 
 		return Gdk.EVENT_PROPAGATE;
@@ -189,6 +189,12 @@ public class FileItem : DesktopItem {
 	// launch will attempt to launch the file.
 	// This optionally takes in in_terminal indicating to open in the user's default terminal as well as the terminal process name
 	public void launch(bool in_terminal) {
+		if (FileUtils.test(file.get_path(), FileTest.IS_EXECUTABLE)) { // Is an executable file
+			warning("Is executable file. File type is: %s", file_type);
+		} else {
+			warning("Is not an executable file. File type is: %s", file_type);
+		}
+
 		Gdk.AppLaunchContext launch_context = (Display.get_default()).get_app_launch_context(); // Get the app launch context for the default display
 		launch_context.set_screen(Screen.get_default()); // Set the screen
 		launch_context.set_timestamp(CURRENT_TIME);
@@ -219,8 +225,8 @@ public class FileItem : DesktopItem {
 			bool supported_terminal = (preferred_terminal in SUPPORTED_TERMINALS);
 
 			if (!supported_terminal) { // Not a supported terminal
-				warning("Unknown Terminal provided. Please use a supported Terminal or file an issue at https://github.com/getsolus/budgie-desktop-view");
-				warning("Consult Budgie Desktop View documentation at https://github.com/getsolus/budgie-desktop-view/wiki on changing the default Terminal.");
+				warning("Unknown Terminal provided. Please use a supported Terminal or file an issue at https://github.com/BuddiesOfBudgie/budgie-desktop-view");
+				warning("Consult Budgie Desktop View documentation at https://github.com/BuddiesOfBudgie/budgie-desktop-view/wiki on changing the default Terminal.");
 				warning("Supported Terminals: %s", string.joinv(", ", SUPPORTED_TERMINALS));
 				return;
 			}

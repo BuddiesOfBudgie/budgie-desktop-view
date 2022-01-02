@@ -86,7 +86,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			resizable: false,
 			skip_pager_hint: true,
 			skip_taskbar_hint: true,
-			startup_id: "us.getsol.budgie-desktop-view",
+			startup_id: "org.buddiesofbudgie.budgie-desktop-view",
 			type_hint: Gdk.WindowTypeHint.DESKTOP
 		);
 
@@ -99,7 +99,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		file_items = new HashTable<string, FileItem>(str_hash, str_equal);
 		mount_items =  new HashTable<string, MountItem>(str_hash, str_equal);
 
-		shared_props.desktop_settings = new GLib.Settings("us.getsol.budgie-desktop-view"); // Get our desktop-view settings
+		shared_props.desktop_settings = new GLib.Settings("org.buddiesofbudgie.budgie-desktop-view"); // Get our desktop-view settings
 
 		if (shared_props.desktop_settings == null) {
 			warning("Required gschema not installed.");
@@ -133,7 +133,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		volume_monitor.mount_added.connect(on_mount_added);
 
 		var css = new CssProvider();
-		css.load_from_resource ("us/getsol/budgie-desktop-view/view.css");
+		css.load_from_resource ("org/buddiesofbudgie/budgie-desktop-view/view.css");
 		StyleContext.add_provider_for_screen(Screen.get_default(), css, STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 		if (!app_paintable) { // If the app isn't paintable, used in debugging

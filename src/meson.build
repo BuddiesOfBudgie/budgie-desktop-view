@@ -30,7 +30,7 @@ else
 endif
 
 executable(
-	'us.getsol.budgie-desktop-view',
+	'org.buddiesofbudgie.budgie-desktop-view',
 	desktop_view_sources,
 	dependencies: desktop_view_deps,
 	vala_args: [

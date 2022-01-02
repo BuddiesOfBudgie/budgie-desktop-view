@@ -29,6 +29,7 @@ am_cflags = [
 ]
 
 add_global_arguments(am_cflags, language: 'c')
+meson.add_install_script('scripts/mesonPostInstall.sh')
 
 glib_dep = '>= 2.64.0'
 gnome_stack = '>= 3.24.0'
