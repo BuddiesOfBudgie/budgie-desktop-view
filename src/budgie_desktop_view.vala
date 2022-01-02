@@ -1,4 +1,5 @@
 /*
+Copyright 2022 Buddies of Budgie
 Copyright 2021 Solus Project
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -611,94 +612,90 @@ public class DesktopView : Gtk.ApplicationWindow {
 		foreach (string file_uri in uris) { // For each file URI
 			file_uri = file_uri.chomp();
 
+			File this_file = File.new_for_uri(file_uri); // Load this file
+			string file_base = this_file.get_basename();
+			string file_dir = file_uri.replace(file_base, ""); // Get the directory
+			file_dir = file_dir.replace("file://", "");
+
+			if (file_base == desktop_file_uri) { // Copying from the Desktop to Desktop
+				continue; // How about...no?
+			}
+
+			var can = new Cancellable(); // Create a new cancellable stack
+			FileInfo? finfo = null;
+
 			try {
-				File this_file = File.new_for_uri(file_uri); // Load this file
-				string file_base = this_file.get_basename();
-				string file_dir = file_uri.replace(file_base, ""); // Get the directory
-				file_dir = file_dir.replace("file://", "");
-
-				if (file_base == desktop_file_uri) { // Copying from the Desktop to Desktop
-					continue; // How about...no?
-				}
-
-				var can = new Cancellable(); // Create a new cancellable stack
-				FileInfo? finfo = null;
-
-				try {
-					finfo = this_file.query_info("standard::*", FileQueryInfoFlags.NONE, can);
-				} catch (Error e) {
-					warning("Failed to get requested information on this file: %s", e.message);
-					continue; // Skip
-				}
-
-				if (can.is_cancelled() || (finfo == null)) { // Cancelled or failed to get info
-					warning("Failed to get information on this file.");
-					continue; // Skip
-				}
-
-				string proposed_file_name = file_base;
-				string copy_file_name = proposed_file_name;
-
-				if (file_items.contains(file_base)) { // Already have a file called this
-					bool have_file_as_copy = true;
-
-					while (have_file_as_copy) {
-						string primitive_name = copy_file_name;
-						string ext = "";
-
-						if (primitive_name.contains(".")) { // Has a . so maybe an extension
-							int last_dot_pos = primitive_name.last_index_of("."); // Get the last .
-							primitive_name = copy_file_name.substring(0, last_dot_pos);
-							warning("Super primitive Name: %s", primitive_name);
-							ext = copy_file_name.substring(last_dot_pos);
-							warning("Extension: %s", ext);
-						}
-
-						primitive_name += " (Copy)"+ext; // Add (Copy)
-
-						File? copy_file = File.new_for_path(Path.build_filename(desktop_file_uri, primitive_name)); // Create a file for this primitive copy
-
-						if (!copy_file.query_exists()) { // File does not exist
-							proposed_file_name = primitive_name;
-							have_file_as_copy = false;
-							break;
-						} else {
-							copy_file_name = primitive_name;
-						}
-					}
-				}
-
-				FileType type = finfo.get_file_type();
-
-				string target_path = Path.build_filename(desktop_file_uri, proposed_file_name);
-				File target_file = File.new_for_path(target_path); // "Create" our target file
-
-				if (type == FileType.DIRECTORY) { // If the file is a directory
-					try {
-						target_file.make_symbolic_link(this_file.get_path());
-					} catch (Error e) {
-						warning("Failed to symlink to %s: %s", target_path, e.message);
-					}
-				} else { // Is a file
-					Cancellable file_cancellable = new Cancellable(); // Create a new cancellable so we can cancel the file
-					shared_props.files_currently_copying.set(proposed_file_name, file_cancellable); // Add the originating file
-
-					this_file.copy_async.begin(target_file, FileCopyFlags.NOFOLLOW_SYMLINKS, 0, file_cancellable, null, (obj, res) => {
-						shared_props.files_currently_copying.remove(proposed_file_name); // Remove the file we were copying from our list
-						update_item_saturation(proposed_file_name); // Update our item saturation
-
-						try {
-							this_file.copy_async.end(res);
-						} catch (Error e) {
-							if (!file_cancellable.is_cancelled()) { // Did not fail due to a cancelled copy
-								warning("Failed to copy %s: %s", proposed_file_name, e.message);
-								delete_item(target_file); // Delete the item
-							}
-						}
-					});
-				}
+				finfo = this_file.query_info("standard::*", FileQueryInfoFlags.NONE, can);
 			} catch (Error e) {
-				warning("Failed to load %s: %s", file_uri, e.message);
+				warning("Failed to get requested information on this file: %s", e.message);
+				continue; // Skip
+			}
+
+			if (can.is_cancelled() || (finfo == null)) { // Cancelled or failed to get info
+				warning("Failed to get information on this file.");
+				continue; // Skip
+			}
+
+			string proposed_file_name = file_base;
+			string copy_file_name = proposed_file_name;
+
+			if (file_items.contains(file_base)) { // Already have a file called this
+				bool have_file_as_copy = true;
+
+				while (have_file_as_copy) {
+					string primitive_name = copy_file_name;
+					string ext = "";
+
+					if (primitive_name.contains(".")) { // Has a . so maybe an extension
+						int last_dot_pos = primitive_name.last_index_of("."); // Get the last .
+						primitive_name = copy_file_name.substring(0, last_dot_pos);
+						warning("Super primitive Name: %s", primitive_name);
+						ext = copy_file_name.substring(last_dot_pos);
+						warning("Extension: %s", ext);
+					}
+
+					primitive_name += " (Copy)"+ext; // Add (Copy)
+
+					File? copy_file = File.new_for_path(Path.build_filename(desktop_file_uri, primitive_name)); // Create a file for this primitive copy
+
+					if (!copy_file.query_exists()) { // File does not exist
+						proposed_file_name = primitive_name;
+						have_file_as_copy = false;
+						break;
+					} else {
+						copy_file_name = primitive_name;
+					}
+				}
+			}
+
+			FileType type = finfo.get_file_type();
+
+			string target_path = Path.build_filename(desktop_file_uri, proposed_file_name);
+			File target_file = File.new_for_path(target_path); // "Create" our target file
+
+			if (type == FileType.DIRECTORY) { // If the file is a directory
+				try {
+					target_file.make_symbolic_link(this_file.get_path());
+				} catch (Error e) {
+					warning("Failed to symlink to %s: %s", target_path, e.message);
+				}
+			} else { // Is a file
+				Cancellable file_cancellable = new Cancellable(); // Create a new cancellable so we can cancel the file
+				shared_props.files_currently_copying.set(proposed_file_name, file_cancellable); // Add the originating file
+
+				this_file.copy_async.begin(target_file, FileCopyFlags.NOFOLLOW_SYMLINKS, 0, file_cancellable, null, (obj, res) => {
+					shared_props.files_currently_copying.remove(proposed_file_name); // Remove the file we were copying from our list
+					update_item_saturation(proposed_file_name); // Update our item saturation
+
+					try {
+						this_file.copy_async.end(res);
+					} catch (Error e) {
+						if (!file_cancellable.is_cancelled()) { // Did not fail due to a cancelled copy
+							warning("Failed to copy %s: %s", proposed_file_name, e.message);
+							delete_item(target_file); // Delete the item
+						}
+					}
+				});
 			}
 		}
 

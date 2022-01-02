@@ -1,13 +1,10 @@
-![view](https://github.com/getsolus/budgie-desktop-view/raw/master/.github/screenshots/budgie-desktop-settings-with-view.jpg)
+![view](https://github.com/BuddiesOfBudgie/budgie-desktop-view/raw/master/.github/screenshots/budgie-desktop-settings-with-view.jpg)
 
 # Budgie Desktop View
 
-Budgie Desktop View is the official Budgie desktop icons application / implementation, developed by [Solus](https://getsol.us/).
+Budgie Desktop View is the official Budgie desktop icons application / implementation.
 
-![#budgie-desktop-dev on libera](https://img.shields.io/badge/libera-%23budgie--desktop--dev-4AF)
-![#solus-dev on libera](https://img.shields.io/badge/libera-%23solus--dev-28C)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/getsolus/budgie-desktop-view)
-![Open Collective backers and sponsors](https://img.shields.io/opencollective/all/getsolus)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/BuddiesOfBudgie/budgie-desktop-view)
 
 ## Scope
 
@@ -24,10 +21,6 @@ Budgie Desktop View provides:
 7. Keyboard-based navigation, including move-to-trash or cancel copy operation on use of delete key.
 
 Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie is not supported and is outside this project's scope.
-
-![Budgie logo](https://getsol.us/imgs/budgie-small.png)
-
-![Solus logo](https://build.getsol.us/logo.png)
 
 ## TODO
 
@@ -68,7 +61,7 @@ By default, we will build with:
 
 #### Stateless
 
-Budgie Desktop View supports stateless XDG paths. This is **disabled** by default and typically reserved for Solus, which is a proponent of statelessness. Should you wish to enable this (which will set the XDG application directory for autostart to datadir + `xdg/autostart` as opposed to using sysconfdir), you can use `-Dwith-stateless=true`
+Budgie Desktop View supports stateless XDG paths. This is **disabled** by default. Should you wish to enable this (which will set the XDG application directory for autostart to datadir + `xdg/autostart` as opposed to using sysconfdir), you can use `-Dwith-stateless=true`
 
 #### Custom XDG Application Directory
 
@@ -122,4 +115,5 @@ Budgie Desktop View is licensed under the Apache-2.0 license.
 
 ## Authors
 
+Copyright © 2022 Buddies of Budgie
 Copyright © 2021 Solus Project

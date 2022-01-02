@@ -66,7 +66,7 @@ podir = join_paths(meson.source_root(), 'po')
 
 with_stateless = get_option('with-stateless')
 if with_stateless == true
-    warning('Only use stateless option with a supported OS like Solus')
+    warning('Only use stateless option with a supported OS')
 endif
 
 xdg_appdir = get_option('xdg-appdir')
@@ -81,7 +81,7 @@ endif
 cdata.set_quoted('DATADIR', datadir)
 cdata.set_quoted('SYSCONFDIR', confdir)
 cdata.set_quoted('LOCALEDIR', localedir)
-cdata.set_quoted('PACKAGE_URL', 'https://github.com/getsolus/budgie-desktop-view/')
+cdata.set_quoted('PACKAGE_URL', 'https://github.com/BuddiesOfBudgie/budgie-desktop-view/')
 
 configure_file(
 	output: 'config.h',

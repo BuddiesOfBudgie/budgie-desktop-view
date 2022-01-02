@@ -1,4 +1,5 @@
 /*
+Copyright 2022 Buddies of Budgie
 Copyright 2021 Solus Project
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,13 +93,8 @@ public class UnifiedProps : Object {
 
 	// update_click_policy will update our single click value
 	private void update_click_policy() {
-		try {
-			ClickPolicyType policy = (ClickPolicyType) _settings.get_enum("click-policy");
-			_is_single_click = (policy == ClickPolicyType.SINGLE);
-		} catch (Error e) {
-			warning("Failed to get click-policy enum: %s", e.message);
-			_is_single_click = true; // Default to true
-		}
+		ClickPolicyType policy = (ClickPolicyType) _settings.get_enum("click-policy");
+		_is_single_click = (policy == ClickPolicyType.SINGLE);
 	}
 
 	// update_max_thumbnail_size will update our max thumbnail size
