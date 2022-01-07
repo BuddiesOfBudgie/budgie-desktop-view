@@ -189,12 +189,6 @@ public class FileItem : DesktopItem {
 	// launch will attempt to launch the file.
 	// This optionally takes in in_terminal indicating to open in the user's default terminal as well as the terminal process name
 	public void launch(bool in_terminal) {
-		if (FileUtils.test(file.get_path(), FileTest.IS_EXECUTABLE)) { // Is an executable file
-			warning("Is executable file. File type is: %s", file_type);
-		} else {
-			warning("Is not an executable file. File type is: %s", file_type);
-		}
-
 		Gdk.AppLaunchContext launch_context = (Display.get_default()).get_app_launch_context(); // Get the app launch context for the default display
 		launch_context.set_screen(Screen.get_default()); // Set the screen
 		launch_context.set_timestamp(CURRENT_TIME);
@@ -303,13 +297,16 @@ public class FileItem : DesktopItem {
 		} else {
 			try {
 				appinfo = file.query_default_handler(); // Get the default handler for the file
-			} catch (Error e) {
-				warning("Failed to get the default handler for this file: %s", e.message);
-			}
+			} catch (Error e) {}
 		}
 
 		if (appinfo == null) {
-			warning("Failed to get app to handle this file.");
+			try {
+				Process.spawn_async(null, {file.get_path()}, Environ.get(), SpawnFlags.STDERR_TO_DEV_NULL | SpawnFlags.STDOUT_TO_DEV_NULL, null, null);
+			} catch (Error e) { // Failed to launch the process
+				warning("Failed to launch this process: %s", e.message);
+			}
+
 			return;
 		}
 
