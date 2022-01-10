@@ -27,7 +27,6 @@ Budgie Desktop View is designed for the Budgie Desktop. Usage outside of Budgie 
 As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO is currently limited to the following:
 
 - Ensuring long-press gestures on items work for 2-in-1 devices.
-- GTK4 port.
 
 ## Building
 
