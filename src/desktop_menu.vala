@@ -51,12 +51,12 @@ public class DesktopMenu : Gtk.Menu {
 		popdown(); // Hide the menu
 	}
 
-	// on_system_settings_activated handles our launching of GNOME Control Center
+	// on_system_settings_activated handles our launching of Budgie Control Center
 	private void on_system_settings_activated() {
 		try {
 			bcc_app.launch(null, (Display.get_default()).get_app_launch_context());
 		} catch (Error e) {
-			warning("Failed to launch GNOME Control Center: %s", e.message);
+			warning("Failed to launch Budgie Control Center: %s", e.message);
 		}
 		popdown(); // Hide the menu
 	}
