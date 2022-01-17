@@ -20,13 +20,13 @@ using Gtk;
 
 public class DesktopMenu : Gtk.Menu {
 	private DesktopAppInfo budgie_app;
-	private DesktopAppInfo gcc_app;
+	private DesktopAppInfo bcc_app;
 
 	public DesktopMenu() {
 		Object();
 
 		budgie_app = new DesktopAppInfo("budgie-desktop-settings.desktop");
-		gcc_app = new DesktopAppInfo("gnome-control-center.desktop");
+		bcc_app = new DesktopAppInfo("budgie-control-center.desktop");
 
 		Gtk.MenuItem budgie_item = new Gtk.MenuItem.with_label(_("Budgie Desktop Settings"));
 		Gtk.MenuItem system_item = new Gtk.MenuItem.with_label(_("System Settings"));
@@ -54,7 +54,7 @@ public class DesktopMenu : Gtk.Menu {
 	// on_system_settings_activated handles our launching of GNOME Control Center
 	private void on_system_settings_activated() {
 		try {
-			gcc_app.launch(null, (Display.get_default()).get_app_launch_context());
+			bcc_app.launch(null, (Display.get_default()).get_app_launch_context());
 		} catch (Error e) {
 			warning("Failed to launch GNOME Control Center: %s", e.message);
 		}
