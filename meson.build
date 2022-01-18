@@ -97,8 +97,11 @@ res = gnome.compile_resources(
 	c_name: 'budgie_desktop_view',
 )
 
-subdir('data')
+subdir('po')
+
 subdir('src')
+
+subdir('data')
 
 report = [
 	'    Build configuration:',
