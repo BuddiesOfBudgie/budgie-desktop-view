@@ -8,6 +8,7 @@ project(
 		'c_std=c11',
 		'buildtype=release',
 		'optimization=3',
+		'werror=true',
 		'warning_level=3',
 	],
 )
@@ -18,7 +19,6 @@ git = find_program('git', required: false)
 intltool = find_program('intltool-merge')
 
 am_cflags = [
-	'-Werror',
 	'-Wconversion',
 	'-Wformat',
 	'-Wformat-security',
@@ -43,7 +43,7 @@ dep_vala = dependency('vapigen', version: '>= 0.48.0')
 package_version = meson.project_version()
 
 if git.found()
-	git_version = run_command('git', ['rev-parse', 'HEAD'])
+	git_version = run_command('git', ['rev-parse', 'HEAD'], check: true)
 	if git_version.returncode() == 0
 		package_version += ' (git-'+git_version.stdout().strip()+')'
 	endif
