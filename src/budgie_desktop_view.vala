@@ -511,7 +511,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		default_display = Display.get_default(); // Get the display related to it
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
-		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.HAND1);
+		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
 
