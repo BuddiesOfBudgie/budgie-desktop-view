@@ -275,9 +275,9 @@ public class FileItem : DesktopItem {
 					args += editor;
 					args += path;
 				} else {
+					string[] cmd = { editor, path };
 					args += "-e";
-					args += editor;
-					args += path;
+					args += string.joinv(" ", cmd); // join command so that it is one argument
 				}
 			}
 
