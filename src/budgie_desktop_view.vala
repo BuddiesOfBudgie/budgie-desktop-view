@@ -42,7 +42,8 @@ public const string[] SUPPORTED_TERMINALS = {
 	"konsole",
 	"mate-terminal",
 	"terminator",
-	"tilix"
+	"tilix",
+	"xfce4-terminal"
 };
 
 public class DesktopView : Gtk.ApplicationWindow {
@@ -475,7 +476,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// get_all_desktop_files will get all the files in our Desktop folder and generate items for them
 	private void get_all_desktop_files() {
 		var c = new Cancellable(); // Create a new cancellable stack
-		FileEnumerator? desktop_file_enumerator = null; 
+		FileEnumerator? desktop_file_enumerator = null;
 
 		try {
 			desktop_file_enumerator = desktop_file.enumerate_children("standard::*,standard::display-name", FileQueryInfoFlags.NONE, c);

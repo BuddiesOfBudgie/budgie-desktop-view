@@ -233,16 +233,25 @@ public class FileItem : DesktopItem {
 			// konsole supports --new-tab and -e, --workdir WITHOUT equal
 			// kitty supports --directory WITH equal
 			// terminator supports --new-tab and -e,  --working-directory (no -w) WITH equal
-			// tilix uses just -e, supports both --working-directory and -w WITH equal
-			if (
-				(preferred_terminal != "alacritty") && // Not Alacritty, no tab CLI flag
-				(preferred_terminal != "gnome-terminal") && // Not GNOME Terminal which uses --tab instead of --new-tab
-				(preferred_terminal != "tilix") && // No new tab CLI flag (that I saw anyways)
-				(preferred_terminal != "kitty") // No new tab CLI flag for Kitty, either
-			) {
-				args += "--new-tab"; // Add --new-tab
-			} else if ((preferred_terminal == "gnome-terminal") && (_type == "file")) { // GNOME Terminal, self explanatory really
-				args += "--tab"; // Create a new tab in an existing window or creates a new window
+			// xfce4-terminal supports -e, --tab, --window, and --working-directory (no -w) WITH equal
+
+			switch (preferred_terminal) {
+				// Terminals that use --tab
+				case "gnome-terminal":
+				case "mate-terminal":
+				case "xfce4-terminal":
+					args += "--tab";
+					break;
+
+				// Terminals that use --new-tab
+				case "konsole":
+				case "terminator":
+					args += "--new-tab";
+					break;
+
+				// Terminals that don't support tabs
+				default:
+					break;
 			}
 
 			string path =  file.get_path();
