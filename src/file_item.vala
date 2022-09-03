@@ -228,7 +228,8 @@ public class FileItem : DesktopItem {
 			string[] args = { preferred_terminal }; // Add our preferred terminal as first arg
 
 			// alacritty supports -e, --working-directory WITHOUT equal
-			// gnome-terminal supports --tab and --working-directory (no -w) WITH equal, but not -e
+			// gnome-terminal supports --working-directory (no -w) WITH equal, but not -e
+			//   --tab is used for specifying tabs in a new window
 			// mate-terminal supports --tab and -e, --working-directory (no -w) WITH equal
 			// konsole supports --new-tab and -e, --workdir WITHOUT equal
 			// kitty supports --directory WITH equal
@@ -237,7 +238,6 @@ public class FileItem : DesktopItem {
 
 			switch (preferred_terminal) {
 				// Terminals that use --tab
-				case "gnome-terminal":
 				case "mate-terminal":
 				case "xfce4-terminal":
 					args += "--tab";
