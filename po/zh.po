@@ -1,7 +1,7 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the budgie-desktop-view package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# FIRST AUTHOR <1278881217@qq.com>, 2022-11-03.
 # 
 #, fuzzy
 msgid ""
@@ -19,28 +19,28 @@ msgstr ""
 
 #: src/desktop_item.vala:83
 msgid "File currently copying"
-msgstr ""
+msgstr "复制当前文件"
 
 #: src/desktop_menu.vala:31
-msgid "Budgie Desktop Settings"
+msgid "鹦鹉桌面设置"
 msgstr ""
 
 #: src/desktop_menu.vala:32
 msgid "System Settings"
-msgstr ""
+msgstr "系统设置"
 
 #: src/file_menu.vala:39
 msgid "Cancel Copy"
-msgstr ""
+msgstr "取消复制"
 
 #: src/file_menu.vala:40
 msgid "Open"
-msgstr ""
+msgstr "打开"
 
 #: src/file_menu.vala:41
 msgid "Open in Terminal"
-msgstr ""
+msgstr "在终端打开"
 
 #: src/file_menu.vala:43
 msgid "Move to Trash"
-msgstr ""
+msgstr "移到回收站"
