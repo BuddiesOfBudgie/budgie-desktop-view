@@ -242,9 +242,7 @@ public class FileItem : DesktopItem {
 				(preferred_terminal != "kitty") // No new tab CLI flag for Kitty, either
 			) {
 				args += "--new-tab"; // Add --new-tab
-			} else if ((preferred_terminal == "gnome-terminal" ||
-						preferred_terminal == "mate-terminal") &&
-					   (_type == "file")) { // GNOME/Mate Terminal, self explanatory really
+			} else if ((preferred_terminal == "gnome-terminal" || preferred_terminal == "mate-terminal") && (_type == "file")) {
 				args += "--tab"; // Create a new tab in an existing window or creates a new window
 			}
 
