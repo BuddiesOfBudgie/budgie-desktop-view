@@ -111,6 +111,40 @@ Budgie Desktop View can be uninstalled using this command:
 sudo ninja -C build uninstall
 ```
 
+## Nix
+
+Integration with the Nix package manager is provided in the [`nix`](./nix) directory.
+
+### Development Shell
+
+A Nix development shell including all build-time dependencies is available, to enter it running `nix-shell ./nix/shell.nix` or `nix develop ./nix` if the Flakes feature is enabled.
+
+### Package
+
+A Nix package is available, to build it run `nix-build -E "with import <nixpkgs> {}; callPackage ./nix {}"` or `nix build ./nix` if the Flakes feature is enabled.
+
+To import the package into a Nix expression, use the following:
+
+```nix
+let
+  budgie-desktop-view-src = fetchTarball "https://github.com/BuddiesOfBudgie/budgie-desktop-view/archive/master.tar.gz";
+  budgie-desktop-view = import (budgie-desktop-view-src + "/nix");
+in
+  budgie-desktop-view
+```
+
+### Flake
+
+A Nix Flake is available, to import it add the following to your `flake.nix`:
+
+```nix
+# Provides:
+#   Development Shell: devShells.default
+#   Package:           packages.${system}.budgie-desktop-view (alias: default)
+inputs.budgie-desktop-view.url = "github:BuddiesOfBudgie/budgie-desktop-view";
+inputs.budgie-desktop-view.inputs.nixpkgs.follows = "nixpkgs"; # Recommended.
+```
+
 ## License
 
 Budgie Desktop View is licensed under the Apache-2.0 license.
