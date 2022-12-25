@@ -1,4 +1,4 @@
-name: Ubuntu 22.04
+name: Ubuntu
 on:
   push:
     branches:
@@ -39,5 +39,5 @@ jobs:
           git submodule init
           git submodule update
 
-          meson setup build -Dwith-gnome-screensaver=true
+          meson setup build
           meson compile -C build

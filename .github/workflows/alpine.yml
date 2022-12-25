@@ -1,4 +1,4 @@
-name: Alpine Latest
+name: Alpine
 on:
   push:
     branches:
@@ -10,7 +10,7 @@ jobs:
   amd64:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: jirutka/setup-alpine@v1
       with:
         packages: build-base alpine-sdk meson gtk+3.0-dev vala intltool
@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [armv7, aarch64, riscv64]
+        arch: [armv7, aarch64]
 
     steps:
     - uses: actions/checkout@v3
@@ -42,5 +42,5 @@ jobs:
           git submodule init
           git submodule update
 
-          meson build -Dwith-gnome-screensaver=true
+          meson setup build
           meson compile -C build
