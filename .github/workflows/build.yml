@@ -38,16 +38,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [Ubuntu, Alpine]
-        arch: [armv7, aarch64]
+        distro: [Ubuntu]
+        arch: [armv7, aarch64, riscv64]
         include:
         - distro: Ubuntu
           image: ubuntu22.04
-        - distro: Alpine
-          image: alpine_latest
-        - distro: Ubuntu
-          image: ubuntu22.04
-          arch: riscv64
 
     steps:
     - uses: actions/checkout@v3
@@ -55,17 +50,13 @@ jobs:
       with:
         arch: ${{ matrix.arch }}
         distro: ${{ matrix.image }}
+
+        # not strictly necessary, but caches dependencies for faster builds
+        githubToken: ${{ github.token }}
+
         install: |
-          case "${{ matrix.image }}" in
-            ubuntu*)
-              apt-get update -q -y
-              apt-get install -q -y git meson intltool libgtk-3-dev libglib2.0-dev valac
-              ;;
-            alpine*)
-              apk update
-              apk add git build-base alpine-sdk meson gtk+3.0-dev vala intltool
-              ;;
-          esac
+          apt-get update -q -y
+          apt-get install -q -y git meson intltool libgtk-3-dev libglib2.0-dev valac
         run: |
           git config --global --add safe.directory "$PWD"
           git submodule init
