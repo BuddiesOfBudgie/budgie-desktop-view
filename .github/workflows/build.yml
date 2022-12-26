@@ -46,6 +46,7 @@ jobs:
         - distro: Alpine
           image: alpine_latest
         - distro: Ubuntu
+          image: ubuntu22.04
           arch: riscv64
 
     steps:
