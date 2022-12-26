@@ -9,7 +9,7 @@ on:
 
 jobs:
   ubuntu-amd64:
-    name: "Ubuntu (amd64)"
+    name: "Ubuntu"
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
     - run: meson compile -C build
 
   alpine-amd64:
-    name: "Alpine (amd64)"
+    name: "Alpine"
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
