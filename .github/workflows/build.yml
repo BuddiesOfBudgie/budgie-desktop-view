@@ -38,12 +38,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        distro: [Ubuntu, Alpine]
+        arch: [armv7, aarch64]
+        include:
         - distro: Ubuntu
           image: ubuntu22.04
-          arch: [armv7, aarch64, riscv64]
         - distro: Alpine
           image: alpine_latest
-          arch: [armv7, aarch64]
+        - distro: Ubuntu
+          arch: riscv64
 
     steps:
     - uses: actions/checkout@v3
