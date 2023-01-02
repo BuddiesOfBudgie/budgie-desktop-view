@@ -37,11 +37,11 @@ As Budgie Desktop View has a rigorous focus and scope of functionality, the TODO
 
 The dependencies provided below are build-time dependencies and named according to the package name on Solus. You may need to look up the equivalent for your own operating system.
 
-Name | Minimum Version | Max. (Tested) Version
----- | ---- | ----
-glib2-devel | 2.64.0 | 2.66.3
-libgtk-3-devel | 3.24.0 | 3.34.22
-vala | 0.48.0 | 0.50.2
+| Name           | Minimum Version | Max. (Tested) Version |
+| -------------- | --------------- | --------------------- |
+| glib2-devel    | 2.64.0          | 2.66.3                |
+| libgtk-3-devel | 3.24.0          | 3.34.22               |
+| vala           | 0.48.0          | 0.50.2                |
 
 #### Solus
 
@@ -117,5 +117,4 @@ Budgie Desktop View is licensed under the Apache-2.0 license.
 
 ## Authors
 
-Copyright © 2022 Buddies of Budgie
-Copyright © 2021 Solus Project
+Copyright Buddies of Budgie

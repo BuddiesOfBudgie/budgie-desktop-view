@@ -1,6 +1,5 @@
 /*
-Copyright 2022 Buddies of Budgie
-Copyright 2021 Solus Project
+Copyright Buddies of Budgie
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,25 +18,27 @@ limitations under the License.
 	Yes that Apache-2.0 block is larger than the CSS itself.
 */
 
-.desktop-item-label.larger-text { /* Icon Size is large or massive */
-	font-size: 14px;
+.desktop-item-label.larger-text {
+  /* Icon Size is large or massive */
+  font-size: 14px;
 }
 
-.desktop-item-label.is-disabled { /* Is the item currently being copied */
-	color: rgba(232, 232, 232, 0.7);
+.desktop-item-label.is-disabled {
+  /* Is the item currently being copied */
+  color: rgba(232, 232, 232, 0.7);
 }
 
 .desktop-item-label:not(.selected) {
-	color: rgba(232, 232, 232, 0.9);
-	font-weight: 600;
-	text-shadow: 0 0 2px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,1);
+  color: rgba(232, 232, 232, 0.9);
+  font-weight: 600;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
 }
 
 .desktop-item-label.selected {
-	font-weight: 600;
-	text-shadow: 0 0 2px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,1);
+  font-weight: 600;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
 }
 
 .debug {
-	background: white;
+  background: white;
 }
