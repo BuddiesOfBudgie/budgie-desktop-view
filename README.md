@@ -1,4 +1,4 @@
-![view](https://github.com/BuddiesOfBudgie/budgie-desktop-view/raw/master/.github/screenshots/budgie-desktop-settings-with-view.jpg)
+![view](https://github.com/BuddiesOfBudgie/budgie-desktop-view/raw/main/.github/screenshots/budgie-desktop-settings-with-view.jpg)
 
 # Budgie Desktop View
 
