@@ -75,7 +75,7 @@ if xdg_appdir == ''
 	if with_stateless == true
 		xdg_appdir = join_paths(datadir, 'xdg', 'autostart')
 	else
-		xdg_appdir = join_paths(get_option('sysconfdir'), 'xdg', 'autostart')
+		xdg_appdir = join_paths(confdir, 'xdg', 'autostart')
 	endif
 endif
 
