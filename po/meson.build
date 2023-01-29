@@ -12,6 +12,8 @@ langs = [
     'ja',
     'ja_JP',
     'ko',
+    'lt',
+    'ms_MY',
     'pt_BR',
     'pt_PT',
     'ru',
@@ -20,6 +22,7 @@ langs = [
     'uk',
     'vi_VN',
     'zh',
+    'zh_CN',
 ]
 
 # Stole this from gnome-twitch, ty TingPing
