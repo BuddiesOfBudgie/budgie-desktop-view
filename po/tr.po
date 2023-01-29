@@ -3,6 +3,9 @@
 # This file is distributed under the same license as the budgie-desktop-view package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
+# Translators:
+# Sabri Ünal <libreajans@gmail.com>, 2022
+# 
 #, fuzzy
 msgid ""
 msgstr ""
@@ -10,6 +13,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-08-14 14:09+0300\n"
 "PO-Revision-Date: 2022-08-14 11:16+0000\n"
+"Last-Translator: Sabri Ünal <libreajans@gmail.com>, 2022\n"
 "Language-Team: Turkish (https://www.transifex.com/buddiesofbudgie/teams/129844/tr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -19,28 +23,28 @@ msgstr ""
 
 #: src/desktop_item.vala:83
 msgid "File currently copying"
-msgstr ""
+msgstr "Dosya şu an kopyalanıyor"
 
 #: src/desktop_menu.vala:31
 msgid "Budgie Desktop Settings"
-msgstr ""
+msgstr "Budgie Masaüstü Ayarları"
 
 #: src/desktop_menu.vala:32
 msgid "System Settings"
-msgstr ""
+msgstr "Sistem Ayarları"
 
 #: src/file_menu.vala:39
 msgid "Cancel Copy"
-msgstr ""
+msgstr "Copyalamayı İptal Et"
 
 #: src/file_menu.vala:40
 msgid "Open"
-msgstr ""
+msgstr "Aç"
 
 #: src/file_menu.vala:41
 msgid "Open in Terminal"
-msgstr ""
+msgstr "Uçbirimde Aç"
 
 #: src/file_menu.vala:43
 msgid "Move to Trash"
-msgstr ""
+msgstr "Çöpe Taşı"

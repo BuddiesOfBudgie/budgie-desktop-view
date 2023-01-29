@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Gavin Zhao, 2022
+# abuyop <abuyop@gmail.com>, 2022
 # 
 #, fuzzy
 msgid ""
@@ -13,38 +13,38 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-08-14 14:09+0300\n"
 "PO-Revision-Date: 2022-08-14 11:16+0000\n"
-"Last-Translator: Gavin Zhao, 2022\n"
-"Language-Team: Chinese (https://www.transifex.com/buddiesofbudgie/teams/129844/zh/)\n"
+"Last-Translator: abuyop <abuyop@gmail.com>, 2022\n"
+"Language-Team: Malay (Malaysia) (https://www.transifex.com/buddiesofbudgie/teams/129844/ms_MY/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: zh\n"
+"Language: ms_MY\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/desktop_item.vala:83
 msgid "File currently copying"
-msgstr "文件正在复制中"
+msgstr "Sedang menyalin fail"
 
 #: src/desktop_menu.vala:31
 msgid "Budgie Desktop Settings"
-msgstr "Budgie桌面设置"
+msgstr "Tetapan Atas Meja Budgie"
 
 #: src/desktop_menu.vala:32
 msgid "System Settings"
-msgstr "系统设置"
+msgstr "Tetapan Sistem"
 
 #: src/file_menu.vala:39
 msgid "Cancel Copy"
-msgstr "取消复制"
+msgstr "Batal Salin"
 
 #: src/file_menu.vala:40
 msgid "Open"
-msgstr "打开"
+msgstr "Buka"
 
 #: src/file_menu.vala:41
 msgid "Open in Terminal"
-msgstr "在终端中打开"
+msgstr "Buka dalam Terminal"
 
 #: src/file_menu.vala:43
 msgid "Move to Trash"
-msgstr "移动至回收站"
+msgstr "Alih ke Tong Sampah"
