@@ -15,7 +15,6 @@ project(
 
 gnome = import('gnome')
 
-git = find_program('git', required: false)
 intltool = find_program('intltool-merge')
 
 am_cflags = [
@@ -40,22 +39,7 @@ dep_gdk = dependency('gdk-3.0', version: gnome_stack)
 dep_gtk = dependency('gtk+-3.0', version: gnome_stack)
 dep_vala = dependency('vapigen', version: '>= 0.48.0')
 
-package_version = meson.project_version()
-
-if git.found()
-	git_version = run_command('git', ['rev-parse', 'HEAD'], check: false)
-	if git_version.returncode() == 0
-		package_version += ' (git-'+git_version.stdout().strip()+')'
-	endif
-endif
-
-# Create config.h
-cdata = configuration_data()
-
-cdata.set_quoted('PACKAGE_VERSION', package_version)
-
 # Make gettext work
-cdata.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 add_global_arguments('-DGETTEXT_PACKAGE="budgie-desktop-view"', language: 'c')
 
 prefix = get_option('prefix')
@@ -78,16 +62,6 @@ if xdg_appdir == ''
 		xdg_appdir = join_paths(confdir, 'xdg', 'autostart')
 	endif
 endif
-
-cdata.set_quoted('DATADIR', datadir)
-cdata.set_quoted('SYSCONFDIR', confdir)
-cdata.set_quoted('LOCALEDIR', localedir)
-cdata.set_quoted('PACKAGE_URL', 'https://github.com/BuddiesOfBudgie/budgie-desktop-view/')
-
-configure_file(
-	output: 'config.h',
-	configuration: cdata,
-)
 
 gresource = join_paths(meson.current_source_dir(), 'data', 'budgie-desktop-view.gresource.xml')
 res = gnome.compile_resources(
