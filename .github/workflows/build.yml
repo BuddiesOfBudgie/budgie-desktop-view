@@ -1,19 +1,28 @@
 name: Build
-on: [push]
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
 jobs:
-  ubuntu:
+  ubuntu-amd64:
+    name: "Ubuntu"
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - run: sudo apt update
     - run: sudo apt install meson intltool libgtk-3-dev libglib2.0-dev valac
-    - run: meson build
+    - run: meson setup build
     - run: meson compile -C build
 
-  alpine:
+  alpine-amd64:
+    name: "Alpine"
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: jirutka/setup-alpine@v1
       with:
         packages: build-base alpine-sdk meson gtk+3.0-dev vala intltool
@@ -21,3 +30,37 @@ jobs:
         meson setup build
         meson compile -C build
       shell: alpine.sh {0}
+
+  extra-architectures:
+    runs-on: ubuntu-22.04
+    name: ${{ matrix.distro }} (${{ matrix.arch }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [Ubuntu]
+        arch: [armv7, aarch64, riscv64]
+        include:
+        - distro: Ubuntu
+          image: ubuntu22.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: uraimo/run-on-arch-action@v2
+      with:
+        arch: ${{ matrix.arch }}
+        distro: ${{ matrix.image }}
+
+        # not strictly necessary, but caches dependencies for faster builds
+        githubToken: ${{ github.token }}
+
+        install: |
+          apt-get update -q -y
+          apt-get install -q -y git meson intltool libgtk-3-dev libglib2.0-dev valac
+        run: |
+          git config --global --add safe.directory "$PWD"
+          git submodule init
+          git submodule update
+
+          meson setup build
+          meson compile -C build
