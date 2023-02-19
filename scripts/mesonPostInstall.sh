@@ -9,6 +9,6 @@ if [ -z $DESTDIR ]; then
 	echo 'Compiling GSchema'
 	glib-compile-schemas "$PREFIX/share/glib-2.0/schemas"
 	echo 'Updating desktop database'
-	update-desktop-database -q
+	update-desktop-database -q "$PREFIX/share/applications"
 
 fi
