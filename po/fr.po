@@ -2,49 +2,53 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the budgie-desktop-view package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 # Translators:
 # roxfr <roxfr@outlook.fr>, 2022
-# 
+# Skythrew <mael.guerin@outlook.fr>, 2023
+#
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: budgie-desktop-view 1.2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-08-14 14:09+0300\n"
+"POT-Creation-Date: 2023-04-30 16:55+0200\n"
 "PO-Revision-Date: 2022-08-14 11:16+0000\n"
-"Last-Translator: roxfr <roxfr@outlook.fr>, 2022\n"
-"Language-Team: French (https://www.transifex.com/buddiesofbudgie/teams/129844/fr/)\n"
+"Last-Translator: Skythrew <mael.guerin@outlook.fr>, 2023\n"
+"Language-Team: French (https://www.transifex.com/buddiesofbudgie/"
+"teams/129844/fr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: fr\n"
-"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
-#: src/desktop_item.vala:83
-msgid "File currently copying"
-msgstr "Fichier en cours de copie"
+#: src/budgie_desktop_view.vala:321
+msgid "Trash"
+msgstr "Corbeille"
 
-#: src/desktop_menu.vala:31
-msgid "Budgie Desktop Settings"
-msgstr "Paramètres du bureau Budgie"
-
-#: src/desktop_menu.vala:32
-msgid "System Settings"
-msgstr "Paramètres du système"
-
-#: src/file_menu.vala:39
+#: src/file_menu.vala:38
 msgid "Cancel Copy"
 msgstr "Annuler la copie"
 
-#: src/file_menu.vala:40
+#: src/file_menu.vala:39
 msgid "Open"
 msgstr "Ouvrir"
 
-#: src/file_menu.vala:41
+#: src/file_menu.vala:40
 msgid "Open in Terminal"
 msgstr "Ouvrir dans un terminal"
 
-#: src/file_menu.vala:43
+#: src/file_menu.vala:42
 msgid "Move to Trash"
 msgstr "Déplacer vers la corbeille"
+
+#: src/desktop_menu.vala:33
+msgid "Budgie Desktop Settings"
+msgstr "Paramètres du bureau Budgie"
+
+#: src/desktop_menu.vala:34
+msgid "System Settings"
+msgstr "Paramètres du système"
+
+#: src/desktop_item.vala:82
+msgid "File currently copying"
+msgstr "Fichier en cours de copie"
