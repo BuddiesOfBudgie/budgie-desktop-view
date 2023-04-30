@@ -318,7 +318,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		special_item.file_type = item_type; // Override file_type
 
 		if (item_type == "trash") {
-			special_item.label_name = "Trash";
+			special_item.label_name = _("Trash");
 		}
 
 		return special_item;
