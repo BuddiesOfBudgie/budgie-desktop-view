@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: budgie-desktop-view 1.2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-08-14 14:09+0300\n"
+"POT-Creation-Date: 2023-05-01 09:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,30 +17,34 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/desktop_item.vala:83
-msgid "File currently copying"
+#: src/budgie_desktop_view.vala:321
+msgid "Trash"
 msgstr ""
 
-#: src/desktop_menu.vala:31
-msgid "Budgie Desktop Settings"
-msgstr ""
-
-#: src/desktop_menu.vala:32
-msgid "System Settings"
-msgstr ""
-
-#: src/file_menu.vala:39
+#: src/file_menu.vala:38
 msgid "Cancel Copy"
 msgstr ""
 
-#: src/file_menu.vala:40
+#: src/file_menu.vala:39
 msgid "Open"
 msgstr ""
 
-#: src/file_menu.vala:41
+#: src/file_menu.vala:40
 msgid "Open in Terminal"
 msgstr ""
 
-#: src/file_menu.vala:43
+#: src/file_menu.vala:42
 msgid "Move to Trash"
+msgstr ""
+
+#: src/desktop_menu.vala:33
+msgid "Budgie Desktop Settings"
+msgstr ""
+
+#: src/desktop_menu.vala:34
+msgid "System Settings"
+msgstr ""
+
+#: src/desktop_item.vala:82
+msgid "File currently copying"
 msgstr ""
