@@ -21,14 +21,6 @@ desktop_view_deps = [
 
 c_flags = []
 
-optimization_level = get_option('optimization')
-
-if optimization_level == '0'
-	warning('We recommend setting an optimization level')
-else
-	c_flags += '-O'+optimization_level
-endif
-
 executable(
 	'org.buddiesofbudgie.budgie-desktop-view',
 	desktop_view_sources,
