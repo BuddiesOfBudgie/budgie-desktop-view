@@ -310,7 +310,7 @@ public class FileItem : DesktopItem {
 		}
 
 		try {
-			if ((file_type == "trash") && (appinfo.get_id() == "org.gnome.Nautilus.desktop")) { // Is trash and using Nautilus
+			if (file_type == "trash") { // Is trash
 				List<string> trash_uris = new List<string>();
 				trash_uris.append("trash:///"); // Open as trash:/// so Nautilus can show us the empty banner
 				appinfo.launch_uris(trash_uris, launch_context);
