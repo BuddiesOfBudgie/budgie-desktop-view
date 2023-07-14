@@ -840,12 +840,13 @@ public class DesktopView : Gtk.ApplicationWindow {
 		bool is_esc_key = key.keyval == 65307;
 
 		if (is_arrow_key && !have_selected_children) { // No child selected and not the escape key
-			FlowBoxChild? first_item = flow.get_child_at_index(0);
-
-			if (first_item != null) { // First item exists
-				flow.select_child(first_item); // Select it
-				set_focus(first_item); // Need this so the window knows what is selected and arrow nav works on second press
-			}
+            foreach (Gtk.Widget item in flow.get_children()) {
+                if (item.is_visible()) {
+                    flow.select_child((Gtk.FlowBoxChild) item);
+                    set_focus((Gtk.FlowBoxChild) item);
+                    break;
+                }
+            }
 
 			return Gdk.EVENT_STOP;
 		} else if ((is_delete_key || is_enter_key) && have_selected_children) { // Pressed the delete or enter key while having a child selected
