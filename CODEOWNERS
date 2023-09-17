@@ -1,0 +1,2 @@
+# Global rule, if anything matches after this then that rule takes precedent
+* @JoshStrobl
