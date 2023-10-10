@@ -14,6 +14,7 @@ desktop_view_sources = [
 
 desktop_view_deps = [
 	dep_gdk,
+	dep_gdk_x11,
 	dep_glib,
 	dep_gio,
 	dep_gtk

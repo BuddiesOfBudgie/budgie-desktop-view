@@ -48,7 +48,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	Screen default_screen;
 	Display default_display;
 	Monitor primary_monitor;
-	Rectangle primary_monitor_geo;
+	Rectangle? primary_monitor_geo = null;
 	UnifiedProps shared_props;
 	Raven? raven = null;
 
@@ -161,6 +161,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		default_screen.monitors_changed.connect(on_resolution_change);
 		default_screen.size_changed.connect(on_resolution_change);
 
+		setup_root_window_event_handler();
+
 		add(flow);
 
 		shared_props.icon_theme = Gtk.IconTheme.get_default(); // Get the current icon theme
@@ -187,6 +189,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (visible_setting) {
 			show();
+			get_display_geo();
 		}
 
 		Bus.watch_name(BusType.SESSION, RAVEN_DBUS_NAME, BusNameWatcherFlags.NONE, has_raven, on_raven_lost);
@@ -516,7 +519,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
 		shared_props.s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
-		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 		update_window_position();
 	}
 
@@ -992,6 +994,22 @@ public class DesktopView : Gtk.ApplicationWindow {
 		enforce_content_limit(); // Update our flowbox content limit based on icon / item sizing
 	}
 
+	public void setup_root_window_event_handler() {
+		Gdk.Window root_window = default_screen.get_root_window();
+		root_window.set_events(EventMask.ALL_EVENTS_MASK);
+
+		root_window.add_filter((xevent, e) => {
+			X.Event xev = *((X.Event*) xevent);
+
+			if (xev.type != X.EventType.PropertyNotify) return FilterReturn.CONTINUE;
+			if (xev.xproperty.atom == Gdk.X11.get_xatom_by_name("_NET_WORKAREA")) {
+				get_display_geo();
+			}
+
+			return FilterReturn.CONTINUE;
+		});
+	}
+
 	// create_fileitem_sorter will create our fileitem sorter
 	// Folders should go before files, with the values of each being collated
 	private void create_fileitem_sorter() {
@@ -1070,7 +1088,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	private void update_window_position() {
 		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
-		set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
 		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
 	}
 }

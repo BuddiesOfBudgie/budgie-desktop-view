@@ -36,6 +36,7 @@ gnome_stack = '>= 3.24.0'
 dep_glib = dependency('glib-2.0', version: glib_dep)
 dep_gio = dependency('gio-unix-2.0', version: glib_dep)
 dep_gdk = dependency('gdk-3.0', version: gnome_stack)
+dep_gdk_x11 = dependency('gdk-x11-3.0', version: gnome_stack)
 dep_gtk = dependency('gtk+-3.0', version: gnome_stack)
 dep_vala = dependency('vapigen', version: '>= 0.48.0')
 
