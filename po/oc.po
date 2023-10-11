@@ -4,7 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2023
+# Quentin PAGÈS, 2023
 # 
 #, fuzzy
 msgid ""
@@ -13,38 +13,38 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-08-14 14:09+0300\n"
 "PO-Revision-Date: 2022-08-14 11:16+0000\n"
-"Last-Translator: Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2023\n"
-"Language-Team: Portuguese (Brazil) (https://app.transifex.com/buddiesofbudgie/teams/129844/pt_BR/)\n"
+"Last-Translator: Quentin PAGÈS, 2023\n"
+"Language-Team: Occitan (post 1500) (https://app.transifex.com/buddiesofbudgie/teams/129844/oc/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: pt_BR\n"
-"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
+"Language: oc\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #: src/desktop_item.vala:83
 msgid "File currently copying"
-msgstr "Arquivo atualmente a copiar"
+msgstr "Còpia de fichièr en cors"
 
 #: src/desktop_menu.vala:31
 msgid "Budgie Desktop Settings"
-msgstr "Definições do Budgie"
+msgstr "Paramètres del burèu Budgie"
 
 #: src/desktop_menu.vala:32
 msgid "System Settings"
-msgstr "Definições do sistema"
+msgstr "Paramètres sistèma"
 
 #: src/file_menu.vala:39
 msgid "Cancel Copy"
-msgstr "Cancelar cópia"
+msgstr "Anullar la còpia"
 
 #: src/file_menu.vala:40
 msgid "Open"
-msgstr "Abrir"
+msgstr "Dobrir"
 
 #: src/file_menu.vala:41
 msgid "Open in Terminal"
-msgstr "Abrir no Terminal"
+msgstr "Dobrir dins un terminal"
 
 #: src/file_menu.vala:43
 msgid "Move to Trash"
-msgstr "Mover para o Lixeira"
+msgstr "Desplaçar a l’escobilhièr"

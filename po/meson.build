@@ -1,29 +1,6 @@
+fs = import('fs')
 i18n = import('i18n')
-
-# for i in *.po; do echo "    '$i'," | sed 's/\.po//'; done
-langs = [
-    'cs',
-    'en_GB',
-    'en_US',
-    'es',
-    'es_MX',
-    'fr',
-    'he',
-    'ja',
-    'ja_JP',
-    'ko',
-    'lt',
-    'ms_MY',
-    'pt_BR',
-    'pt_PT',
-    'ru',
-    'sq',
-    'tr',
-    'uk',
-    'vi_VN',
-    'zh',
-    'zh_CN',
-]
+langs = fs.read('LINGUAS').strip().split('\n')
 
 # Stole this from gnome-twitch, ty TingPing
 # https://github.com/vinszent/gnome-twitch/tree/master/po
