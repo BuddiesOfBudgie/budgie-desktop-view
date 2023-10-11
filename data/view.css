@@ -28,13 +28,18 @@ limitations under the License.
   color: rgba(232, 232, 232, 0.7);
 }
 
-.desktop-item-label:not(.selected) {
+.desktop-item:not(.selected) .desktop-item-image {
+  opacity: 0.9;
+}
+
+.desktop-item:not(.selected) .desktop-item-label {
   color: rgba(232, 232, 232, 0.9);
   font-weight: 600;
   text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
 }
 
-.desktop-item-label.selected {
+.desktop-item.selected .desktop-item-label {
+  color: rgba(240, 240, 240, 1);
   font-weight: 600;
   text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
 }

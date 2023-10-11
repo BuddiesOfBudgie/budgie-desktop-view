@@ -90,6 +90,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		);
 
 		shared_props = new UnifiedProps(); // Create shared props
+		shared_props.cursor_changed.connect((cursor) => {
+			get_window().set_cursor(cursor);
+		});
 		shared_props.thumbnail_size_changed.connect(refresh_icon_sizes); // When our thumbnail size changed, refresh our icons
 
 		Gtk.Settings? default_settings = Gtk.Settings.get_default(); // Get the default settings
@@ -514,6 +517,25 @@ public class DesktopView : Gtk.ApplicationWindow {
 		default_display = Display.get_default(); // Get the display related to it
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
+		shared_props.loading_cursor = new Cursor.from_name(default_display, "progress");
+
+		shared_props.launch_context = default_display.get_app_launch_context(); // Get the app launch context for the default display
+		shared_props.launch_context.set_screen(default_screen); // Set the screen
+
+		shared_props.launch_context.launch_started.connect(() => {
+			shared_props.is_launching = true;
+			shared_props.current_cursor = shared_props.loading_cursor;
+		});
+
+		shared_props.launch_context.launch_failed.connect(() => {
+			shared_props.is_launching = false;
+			shared_props.current_cursor = shared_props.hand_cursor;
+		});
+
+		shared_props.launch_context.launched.connect(() => {
+			shared_props.is_launching = false;
+			shared_props.current_cursor = shared_props.hand_cursor;
+		});
 
 		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
 

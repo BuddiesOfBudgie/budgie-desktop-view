@@ -25,24 +25,33 @@ public enum ClickPolicyType {
 // UnifiedProps contains a multitude of shared properties used for our various item types
 public class UnifiedProps : Object {
 	public HashTable<string, Cancellable?> files_currently_copying; // All files currently being copied
+	public bool is_launching;
 
 	// Shared properties
 	private GLib.Settings? _settings;
 	private bool _is_single_click;
 	private int _max_thumbnail_size;
-	public FileMenu? file_menu;
+
+	private Gdk.Cursor? _previous_cursor;
+	private Gdk.Cursor? _current_cursor;
 	public Gdk.Cursor? blocked_cursor;
 	public Gdk.Cursor? hand_cursor;
+	public Gdk.Cursor? loading_cursor;
+
+	public Gdk.AppLaunchContext? launch_context;
+	public FileMenu? file_menu;
 	public IconTheme icon_theme;
 	public int? icon_size;
 	public int? s_factor;
 
+	public signal void cursor_changed(Gdk.Cursor cursor);
 	public signal void thumbnail_size_changed();
 
 	// Create a new UnifiedProps.
 	// Doesn't require any initial constructor properties since we want the flexibility of setting these across various parts of the codebase
 	public UnifiedProps() {
 		files_currently_copying = new HashTable<string, Cancellable>(str_hash, str_equal); // Create our empty list
+		is_launching = false;
 		_is_single_click = true;
 		_max_thumbnail_size = 10;
 	}
@@ -73,6 +82,24 @@ public class UnifiedProps : Object {
 	public int max_thumbnail_size {
 		public get {
 			return _max_thumbnail_size;
+		}
+	}
+
+	public Gdk.Cursor? current_cursor {
+		public get {
+			return _current_cursor;
+		}
+
+		public set {
+			_previous_cursor = _current_cursor;
+			_current_cursor = value;
+			if (_current_cursor != null) cursor_changed(_current_cursor);
+		}
+	}
+
+	public Gdk.Cursor? previous_cursor {
+		public get {
+			return _previous_cursor;
 		}
 	}
 

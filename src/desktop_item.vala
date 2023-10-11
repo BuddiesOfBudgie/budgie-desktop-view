@@ -37,6 +37,7 @@ public class DesktopItem : FlowBoxChild {
 
 	public DesktopItem() {
 		Object(); // Create our DesktopItem as a FlowBoxChild
+		get_style_context().add_class("desktop-item");
 		expand = true; // Expand when possible
 		margin = ITEM_MARGIN;
 		set_no_show_all(true);
@@ -128,29 +129,25 @@ public class DesktopItem : FlowBoxChild {
 
 	// on_enter handles mouse entry
 	private bool on_enter(EventCrossing event) {
-		if (event.mode != Gdk.CrossingMode.NORMAL) {
-			return EVENT_STOP;
-		}
+		if (event.mode != Gdk.CrossingMode.NORMAL) return EVENT_STOP;
 
-		label.get_style_context().add_class("selected");
+		get_style_context().add_class("selected");
 
 		if (_copying) { // Currently copying
-			get_window().set_cursor(props.blocked_cursor);
-		} else { // Not currently copying
-			get_window().set_cursor(props.hand_cursor);
+			props.current_cursor = props.blocked_cursor;
 		}
+
 		return EVENT_STOP;
 	}
 
 	// on_leave handles mouse leaving
 	private bool on_leave(EventCrossing event) {
-		if (event.mode != Gdk.CrossingMode.NORMAL) {
-			get_window().set_cursor(null);
-			return EVENT_STOP;
-		}
+		if (event.mode != Gdk.CrossingMode.NORMAL) return EVENT_STOP;
 
-		label.get_style_context().remove_class("selected");
-		get_window().set_cursor(null);
+		get_style_context().remove_class("selected");
+
+		if (!props.is_launching) props.current_cursor = props.hand_cursor;
+
 		return EVENT_STOP;
 	}
 
@@ -258,6 +255,7 @@ public class DesktopItem : FlowBoxChild {
 
 		if (image == null) { // If we haven't created the Image yet
 			image = new Image.from_pixbuf(pix); // Load the image from pixbuf
+			image.get_style_context().add_class("desktop-item-image");
 			image.margin_bottom = 10;
 			main_layout.pack_start(image, true, true, 0); // Indicate this is the center widget
 		} else { // If the Image already exists

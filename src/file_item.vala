@@ -188,13 +188,11 @@ public class FileItem : DesktopItem {
 	// launch will attempt to launch the file.
 	// This optionally takes in in_terminal indicating to open in the user's default terminal as well as the terminal process name
 	public void launch(bool in_terminal) {
-		Gdk.AppLaunchContext launch_context = (Display.get_default()).get_app_launch_context(); // Get the app launch context for the default display
-		launch_context.set_screen(Screen.get_default()); // Set the screen
-		launch_context.set_timestamp(CURRENT_TIME);
+		props.launch_context.set_timestamp(CURRENT_TIME);
 
 		if (app_info != null) { // If we got the app info for this
 			try {
-				app_info.launch(null, launch_context); // Launch the application
+				app_info.launch(null, props.launch_context); // Launch the application
 			} catch (Error e) {
 				warning("Failed to launch %s: %s", name, e.message);
 			}
@@ -205,7 +203,7 @@ public class FileItem : DesktopItem {
 		if (keyfile != null) { // Have a custom key file
 			try {
 				string keyfile_url = keyfile.get_string("Desktop Entry", "URL");
-				AppInfo.launch_default_for_uri(keyfile_url, launch_context);
+				AppInfo.launch_default_for_uri(keyfile_url, props.launch_context);
 			} catch (Error e) {
 				warning("Failed to launch %s: %s", name, e.message);
 			}
@@ -313,9 +311,9 @@ public class FileItem : DesktopItem {
 			if (file_type == "trash") { // Is trash
 				List<string> trash_uris = new List<string>();
 				trash_uris.append("trash:///"); // Open as trash:/// so Nautilus can show us the empty banner
-				appinfo.launch_uris(trash_uris, launch_context);
+				appinfo.launch_uris(trash_uris, props.launch_context);
 			} else {
-				appinfo.launch(file_list, launch_context); // Launch the file
+				appinfo.launch(file_list, props.launch_context); // Launch the file
 			}
 		} catch (Error e) {
 			warning("Failed to launch %s: %s", name, e.message);
