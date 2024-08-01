@@ -234,11 +234,12 @@ public class FileItem : DesktopItem {
 			if (
 				(preferred_terminal != "alacritty") && // Not Alacritty, no tab CLI flag
 				(preferred_terminal != "gnome-terminal") && // Not GNOME Terminal which uses --tab instead of --new-tab
+				(preferred_terminal != "mate-terminal") && // Not Mate Terminal which uses --tab instead of --new-tab
 				(preferred_terminal != "tilix") && // No new tab CLI flag (that I saw anyways)
 				(preferred_terminal != "kitty") // No new tab CLI flag for Kitty, either
 			) {
 				args += "--new-tab"; // Add --new-tab
-			} else if ((preferred_terminal == "gnome-terminal") && (_type == "file")) { // GNOME Terminal, self explanatory really
+			} else if ((preferred_terminal == "gnome-terminal" || preferred_terminal == "mate-terminal") && (_type == "file")) {
 				args += "--tab"; // Create a new tab in an existing window or creates a new window
 			}
 
@@ -267,11 +268,17 @@ public class FileItem : DesktopItem {
 					editor = "nano";
 				}
 
-				if (preferred_terminal == "gnome-terminal") { // gnome-terminal will not work with -e
+				if (preferred_terminal == "gnome-terminal") {
+					// gnome-terminal will not work with -e
 					args += "--";
 					args += editor;
 					args += path;
-				} else {
+				} else if (preferred_terminal == "mate-terminal") {
+					// mate-terminal does not pass params with -e
+					args += "-x";
+					args += editor;
+					args += path;
+				} else  {
 					args += "-e";
 					args += editor;
 					args += path;
