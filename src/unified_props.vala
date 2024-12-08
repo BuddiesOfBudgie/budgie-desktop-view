@@ -42,7 +42,7 @@ public class UnifiedProps : Object {
 	public FileMenu? file_menu;
 	public IconTheme icon_theme;
 	public int? icon_size;
-	public int? s_factor;
+	public uint? s_factor;
 
 	public signal void cursor_changed(Gdk.Cursor cursor);
 	public signal void thumbnail_size_changed();

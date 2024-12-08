@@ -14,10 +14,11 @@ desktop_view_sources = [
 
 desktop_view_deps = [
 	dep_gdk,
-	dep_gdk_x11,
 	dep_glib,
 	dep_gio,
-	dep_gtk
+	dep_gtk,
+	dep_gtk_layer_shell,
+	dep_xfce4windowing
 ]
 
 c_flags = []
@@ -31,6 +32,7 @@ executable(
 		'--pkg', 'gio-unix-2.0',
 		'--pkg', 'gtk+-3.0',
 		'--target-glib=2.64',
+		'--vapidir', join_paths(meson.source_root(), 'vapi'),
 	],
 	install: true,
 	install_dir: join_paths(get_option('prefix'), get_option('bindir')),

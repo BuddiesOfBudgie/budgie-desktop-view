@@ -31,9 +31,10 @@ gnome_stack = '>= 3.24.0'
 dep_glib = dependency('glib-2.0', version: glib_dep)
 dep_gio = dependency('gio-unix-2.0', version: glib_dep)
 dep_gdk = dependency('gdk-3.0', version: gnome_stack)
-dep_gdk_x11 = dependency('gdk-x11-3.0', version: gnome_stack)
 dep_gtk = dependency('gtk+-3.0', version: gnome_stack)
 dep_vala = dependency('vapigen', version: '>= 0.48.0')
+dep_gtk_layer_shell = dependency('gtk-layer-shell-0', version: '>= 0.8.0')
+dep_xfce4windowing = dependency('libxfce4windowing-0', version: '>= 4.19.7')
 
 # Make gettext work
 add_global_arguments('-DGETTEXT_PACKAGE="budgie-desktop-view"', language: 'c')

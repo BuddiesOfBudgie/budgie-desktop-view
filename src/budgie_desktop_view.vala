@@ -45,9 +45,9 @@ public const string[] SUPPORTED_TERMINALS = {
 };
 
 public class DesktopView : Gtk.ApplicationWindow {
-	Screen default_screen;
-	Display default_display;
-	Monitor primary_monitor;
+	libxfce4windowing.Screen default_screen;
+	Gdk.Display default_display;
+	libxfce4windowing.Monitor? primary_monitor;
 	Rectangle? primary_monitor_geo = null;
 	UnifiedProps shared_props;
 	Raven? raven = null;
@@ -88,6 +88,16 @@ public class DesktopView : Gtk.ApplicationWindow {
 			startup_id: "org.buddiesofbudgie.budgie-desktop-view",
 			type_hint: Gdk.WindowTypeHint.DESKTOP
 		);
+
+		GtkLayerShell.init_for_window(this);
+		GtkLayerShell.set_layer(this, GtkLayerShell.Layer.BACKGROUND);
+		GtkLayerShell.set_anchor(
+			this,
+			GtkLayerShell.Edge.TOP | GtkLayerShell.Edge.LEFT,
+			true
+		);
+		GtkLayerShell.set_keyboard_mode(this, GtkLayerShell.KeyboardMode.ON_DEMAND);
+		GtkLayerShell.try_force_commit(this);
 
 		shared_props = new UnifiedProps(); // Create shared props
 		shared_props.cursor_changed.connect((cursor) => {
@@ -143,8 +153,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		// Window settings
-		set_keep_below(true); // Stay below other windows
-		set_position(WindowPosition.CENTER); // Don't account for anything like current pouse position
 		show_menubar = false;
 
 		desktop_menu = new DesktopMenu(); // Create our new desktop menu
@@ -160,11 +168,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		get_display_geo(); // Set our geo
 
-		default_screen.composited_changed.connect(set_window_transparent);
 		default_screen.monitors_changed.connect(on_resolution_change);
-		default_screen.size_changed.connect(on_resolution_change);
-
-		setup_root_window_event_handler();
 
 		add(flow);
 
@@ -480,7 +484,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// get_all_desktop_files will get all the files in our Desktop folder and generate items for them
 	private void get_all_desktop_files() {
 		var c = new Cancellable(); // Create a new cancellable stack
-		FileEnumerator? desktop_file_enumerator = null; 
+		FileEnumerator? desktop_file_enumerator = null;
 
 		try {
 			desktop_file_enumerator = desktop_file.enumerate_children("standard::*,standard::display-name", FileQueryInfoFlags.NONE, c);
@@ -511,16 +515,16 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// get_display_geo will get or update our primary monitor workarea
 	private void get_display_geo() {
-		default_screen = Screen.get_default(); // Get our current default Screen
-		screen = default_screen;
+		default_screen = libxfce4windowing.Screen.get_default(); // Get our current default Screen
+		primary_monitor = default_screen.get_primary_monitor();
 
-		default_display = Display.get_default(); // Get the display related to it
+		default_display = default_screen.gdk_screen.get_display(); // Get the display related to it
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
 		shared_props.loading_cursor = new Cursor.from_name(default_display, "progress");
 
 		shared_props.launch_context = default_display.get_app_launch_context(); // Get the app launch context for the default display
-		shared_props.launch_context.set_screen(default_screen); // Set the screen
+		shared_props.launch_context.set_screen(default_screen.gdk_screen); // Set the screen
 
 		shared_props.launch_context.launch_started.connect(() => {
 			shared_props.is_launching = true;
@@ -537,11 +541,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 			shared_props.current_cursor = shared_props.hand_cursor;
 		});
 
-		primary_monitor = default_display.get_primary_monitor(); // Get the actual primary monitor for this display
-
 		primary_monitor_geo = primary_monitor.get_workarea(); // Get the working area of this monitor
-		shared_props.s_factor = primary_monitor.get_scale_factor(); // Get the current scaling factor
-		update_window_position();
+		shared_props.s_factor = primary_monitor.get_scale(); // Get the current scaling factor
+		update_window_sizing();
 	}
 
 	// get_mount_uuid will get a mount UUID and return it
@@ -617,8 +619,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		} else if (event.button == 3) { // Right click
 			dismiss_raven(); // Dismiss raven
 
-			desktop_menu.place_on_monitor(primary_monitor); // Ensure menu is on primary monitor
-			desktop_menu.set_screen(default_screen); // Ensure menu is on our screen
+			desktop_menu.place_on_monitor(primary_monitor.gdk_monitor); // Ensure menu is on primary monitor
+			desktop_menu.set_screen(default_screen.gdk_screen); // Ensure menu is on our screen
 			desktop_menu.popup_at_pointer(event); // Popup where our mouse is
 
 			return Gdk.EVENT_STOP;
@@ -958,7 +960,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (visible_setting) {
 			show();
-			update_window_position();
+			update_window_sizing();
 		} else {
 			hide();
 		}
@@ -1014,22 +1016,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		});
 
 		enforce_content_limit(); // Update our flowbox content limit based on icon / item sizing
-	}
-
-	public void setup_root_window_event_handler() {
-		Gdk.Window root_window = default_screen.get_root_window();
-		root_window.set_events(EventMask.ALL_EVENTS_MASK);
-
-		root_window.add_filter((xevent, e) => {
-			X.Event xev = *((X.Event*) xevent);
-
-			if (xev.type != X.EventType.PropertyNotify) return FilterReturn.CONTINUE;
-			if (xev.xproperty.atom == Gdk.X11.get_xatom_by_name("_NET_WORKAREA")) {
-				get_display_geo();
-			}
-
-			return FilterReturn.CONTINUE;
-		});
 	}
 
 	// create_fileitem_sorter will create our fileitem sorter
@@ -1108,9 +1094,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 	}
 
-	private void update_window_position() {
+	private void update_window_sizing() {
 		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
 		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
-		move(primary_monitor_geo.x, primary_monitor_geo.y); // Move the window to the x/y of our primary monitor
+		get_item_size(); // Update desired item spacing
+		enforce_content_limit();
 	}
 }
