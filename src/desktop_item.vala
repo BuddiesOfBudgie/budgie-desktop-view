@@ -187,14 +187,14 @@ public class DesktopItem : FlowBoxChild {
 
 		icon = ico; // Set the icon
 
-		IconInfo? icon_info = props.icon_theme.lookup_by_gicon_for_scale(icon, props.icon_size, props.s_factor, IconLookupFlags.USE_BUILTIN & IconLookupFlags.GENERIC_FALLBACK);
+		IconInfo? icon_info = props.icon_theme.lookup_by_gicon_for_scale(icon, props.icon_size, (int) props.s_factor, IconLookupFlags.USE_BUILTIN & IconLookupFlags.GENERIC_FALLBACK);
 		set_icon_from_iconinfo(icon_info);
 	}
 
 	// set_icon_from_name is responsible for setting our icon based on an icon name
 	public void set_icon_from_name(string icon_name) throws Error {
 		try {
-			Pixbuf? pix = props.icon_theme.load_icon_for_scale(icon_name, props.icon_size, props.s_factor, IconLookupFlags.GENERIC_FALLBACK);
+			Pixbuf? pix = props.icon_theme.load_icon_for_scale(icon_name, props.icon_size, (int) props.s_factor, IconLookupFlags.GENERIC_FALLBACK);
 			set_image_pixbuf(pix);
 		} catch (Error e) {
 			throw e;
