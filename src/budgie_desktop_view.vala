@@ -41,7 +41,8 @@ public const string[] SUPPORTED_TERMINALS = {
 	"konsole",
 	"mate-terminal",
 	"terminator",
-	"tilix"
+	"tilix",
+	"xfce4-terminal"
 };
 
 public class DesktopView : Gtk.ApplicationWindow {
