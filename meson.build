@@ -1,7 +1,7 @@
 project(
 	'budgie-desktop-view',
 	['c', 'vala'],
-	version: '1.3',
+	version: '10.10-preview.1',
 	license: [ 'Apache-2.0' ],
 	default_options: [
 		'c_std=c11',
