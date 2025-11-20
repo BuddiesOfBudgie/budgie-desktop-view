@@ -24,11 +24,8 @@ public class DesktopMenu : Gtk.Menu {
 	public DesktopMenu() {
 		Object();
 
-		budgie_app = new DesktopAppInfo("budgie-desktop-settings.desktop");
-		if (!(budgie_app is DesktopAppInfo)) {
-			budgie_app = new DesktopAppInfo("org.buddiesofbudgie.BudgieDesktopSettings.desktop");
-		}
-		bcc_app = new DesktopAppInfo("budgie-control-center.desktop");
+		budgie_app = new DesktopAppInfo("org.buddiesofbudgie.BudgieDesktopSettings.desktop");
+		bcc_app = new DesktopAppInfo("org.buddiesofbudgie.ControlCenter.desktop");
 
 		Gtk.MenuItem budgie_item = new Gtk.MenuItem.with_label(_("Budgie Desktop Settings"));
 		Gtk.MenuItem system_item = new Gtk.MenuItem.with_label(_("System Settings"));
