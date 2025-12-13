@@ -24,6 +24,7 @@ public interface Raven : GLib.Object {
 
 public const string RAVEN_DBUS_NAME = "org.budgie_desktop.Raven";
 public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
+public const int MARGIN = 20; // pixel spacing for left/right
 
 public enum DesktopItemSize {
 	SMALL = 0, // 32x32
@@ -166,6 +167,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.set_orientation(Gtk.Orientation.VERTICAL);
 		flow.set_sort_func(sorter); // Set our sorting function
 		flow.valign = Align.START; // Don't let it fill
+		flow.margin_start = MARGIN;
+		flow.margin_end = MARGIN;
 
 		get_display_geo(); // Set our geo
 
@@ -1097,7 +1100,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	private void update_window_sizing() {
 		set_default_size(primary_monitor_geo.width, primary_monitor_geo.height);
-		flow.set_size_request(primary_monitor_geo.width, primary_monitor_geo.height);
+		flow.set_size_request(primary_monitor_geo.width - (MARGIN * 2), primary_monitor_geo.height);
+		// N.B. MARGIN * 2 takes into account flow start & end spacing
 		get_item_size(); // Update desired item spacing
 		enforce_content_limit();
 	}
