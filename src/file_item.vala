@@ -231,17 +231,19 @@ public class FileItem : DesktopItem {
 			// kitty supports --directory WITH equal
 			// terminator supports --new-tab and -e,  --working-directory (no -w) WITH equal
 			// tilix uses just -e, supports both --working-directory and -w WITH equal
+			// xfce4-terminal supports -e, --tab, --window, and --working-directory (no -w) WITH equal
 			if (
 				(preferred_terminal != "alacritty") && // Not Alacritty, no tab CLI flag
 				(preferred_terminal != "gnome-terminal") && // Not GNOME Terminal which uses --tab instead of --new-tab
 				(preferred_terminal != "kgx") && // Not GNOME Console which uses --tab instead of --new-tab
 				(preferred_terminal != "mate-terminal") && // Not Mate Terminal which uses --tab instead of --new-tab
 				(preferred_terminal != "tilix") && // No new tab CLI flag (that I saw anyways)
-				(preferred_terminal != "kitty") // No new tab CLI flag for Kitty, either
+				(preferred_terminal != "kitty") && // No new tab CLI flag for Kitty, either
+				(preferred_terminal != "xfce4-terminal") // Not Xfce4 Terminal which uses --tab instead of --new-tab
 			) {
 				args += "--new-tab"; // Add --new-tab
 			} else if (
-			    (preferred_terminal == "gnome-terminal" || preferred_terminal == "kgx" || preferred_terminal == "mate-terminal") &&
+			    (preferred_terminal == "gnome-terminal" || preferred_terminal == "kgx" || preferred_terminal == "mate-terminal" || preferred_terminal == "xfce4-terminal") &&
 			    (_type == "file")
 			) {
 				args += "--tab"; // Create a new tab in an existing window or creates a new window
@@ -282,6 +284,11 @@ public class FileItem : DesktopItem {
 					args += "-x";
 					args += editor;
 					args += path;
+				} else if (preferred_terminal == "xfce4-terminal") {
+					// xfce-terminal needs quoted commands with -e
+					string[] cmd = { editor, path };
+					args += "-e";
+					args += string.joinv(" ", cmd); // join command so that its one command
 				} else  {
 					args += "-e";
 					args += editor;
