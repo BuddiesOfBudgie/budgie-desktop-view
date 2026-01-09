@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,11 @@ public interface Raven : GLib.Object {
 public const string RAVEN_DBUS_NAME = "org.budgie_desktop.Raven";
 public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
 public const int MARGIN = 20; // pixel spacing for left/right
+
+// Drag and drop constants
+public const string POSITIONS_DIR = ".config/budgie-desktop-view";
+public const string POSITIONS_FILE = "icon-positions.conf";
+public const double DRAG_OPACITY = 0.5;
 
 public enum DesktopItemSize {
 	SMALL = 0, // 32x32
@@ -46,6 +51,13 @@ public const string[] SUPPORTED_TERMINALS = {
 	"tilix",
 	"xfce4-terminal"
 };
+
+// Drag and drop state
+HashTable<string, int>? custom_positions; // Maps item identifiers to custom positions
+List<DesktopItem>? drag_source_items = null; // All items being dragged
+DesktopItem? drag_primary_item = null; // The item where drag started
+int drag_insert_index = -1;
+bool using_custom_positions = false;
 
 public class DesktopView : Gtk.ApplicationWindow {
 	libxfce4windowing.Screen default_screen;
@@ -131,6 +143,8 @@ public class DesktopView : Gtk.ApplicationWindow {
 		shared_props.desktop_settings.changed["show-home-folder"].connect(on_show_home_folder_changed);
 		shared_props.desktop_settings.changed["show-trash-folder"].connect(on_show_trash_folder_changed);
 
+		update_auto_arrange_menu(); // Update menu state based on loaded positions
+
 		show_home = shared_props.desktop_settings.get_boolean("show-home-folder");
 		show_mounts = shared_props.desktop_settings.get_boolean("show-active-mounts");
 		show_trash = shared_props.desktop_settings.get_boolean("show-trash-folder");
@@ -160,13 +174,18 @@ public class DesktopView : Gtk.ApplicationWindow {
 		// Window settings
 		show_menubar = false;
 
-		desktop_menu = new DesktopMenu(); // Create our new desktop menu
+		desktop_menu = new DesktopMenu(this); // Create our new desktop menu
+		desktop_menu.toggle_auto_arrange.connect(on_toggle_auto_arrange);
 		shared_props.file_menu = new FileMenu(shared_props); // Create our new file menu and set it in our shared props
+
+		load_custom_positions(); // Load saved icon positions (after menu is created)
+		update_auto_arrange_menu(); // Update menu state based on loaded positions
 
 		flow = new FlowBox();
 		flow.get_style_context().add_class("flow");
 		flow.halign = Align.START; // Start at the beginning
 		flow.expand = false;
+		flow.set_selection_mode(Gtk.SelectionMode.MULTIPLE); // Enable multi-selection
 		flow.set_orientation(Gtk.Orientation.VERTICAL);
 		flow.set_sort_func(sorter); // Set our sorting function
 		flow.valign = Align.START; // Don't let it fill
@@ -194,6 +213,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		flow.can_focus = false;
 		key_press_event.connect(on_key_pressed);
 		button_release_event.connect(on_button_release); // Bind on_button_release to our button_release_event
+
+		// Enable drag and drop for icon repositioning
+		setup_flowbox_drag_dest();
 
 		Gtk.TargetEntry[] targets = { { "application/x-icon-tasklist-launcher-id", 0, 0 }, { "text/uri-list", 0, 0 }, { "application/x-desktop", 0, 0 }};
 		Gtk.drag_dest_set(this, Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY);
@@ -255,6 +277,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 			file_items.set(created_file_name, item); // Add our item with our file name and the prepended type
 			flow.add(item); //  Add our FileItem
 
+			// Setup drag source for this item
+			setup_item_drag_source(item);
+			setup_item_drag_dest(item);
+
 			if (visible_setting) { // Showing icons currently
 				item.request_show();
 			}
@@ -280,6 +306,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 		mount_items.set(uuid, mount_item);
 		flow.add(mount_item); // Add the Mount Item
 
+		// Setup drag source for this item
+		setup_item_drag_source(mount_item);
+		setup_item_drag_dest(mount_item);
+
 		if (visible_setting && show_mounts) { // Showing icons currently and should show mounts
 			mount_item.request_show(); // Request showing this item
 		}
@@ -302,6 +332,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (trash_item != null) { // Successfully created the trash directory item
 			flow.add(trash_item);
 		}
+
+		// Setup drag sources for special items
+		if (home_item != null) setup_item_drag_source(home_item);
+		if (trash_item != null) setup_item_drag_source(trash_item);
 	}
 
 	// create_special_file_item will create a FileItem for a special directory like Home
@@ -632,13 +666,22 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// on_button_release handles the releasing of a mouse button
 	private bool on_button_release(EventButton event) {
-		if (event.button == 1) { // Left click
+		bool ctrl_down = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0;
+		bool shift_down = (event.state & Gdk.ModifierType.SHIFT_MASK) != 0;
+
+		if (event.button == 1 && (ctrl_down == false && shift_down == false )) { // Left click only
 			desktop_menu.popdown(); // Hide the menu
 			clear_selection(); // Clear any selection
 			dismiss_raven(); // Dismiss raven
 
 			return Gdk.EVENT_PROPAGATE;
-		} else if (event.button == 3) { // Right click
+		} else if (event.button == 1 && (ctrl_down == true || shift_down == true)) {
+			desktop_menu.popdown(); // Hide the menu
+			dismiss_raven(); // Dismiss raven
+
+			return Gdk.EVENT_PROPAGATE;
+		}
+		else if (event.button == 3) { // Right click
 			dismiss_raven(); // Dismiss raven
 
 			desktop_menu.place_on_monitor(primary_monitor.gdk_monitor); // Ensure menu is on primary monitor
@@ -653,6 +696,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// on_drag_data_received handles our drag_data_received
 	private void on_drag_data_received(Gtk.Widget widget, Gdk.DragContext c, int x, int y, Gtk.SelectionData d, uint info, uint time) {
+		debug("on_drag_data_received - processing URIs.\n");
 		string uri = (string) d.get_data(); // Get our data as a string
 		string[] uris = uri.chomp().split("\n"); // Split on newlines in case we pass multiple items
 
@@ -665,7 +709,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			file_dir = file_dir.replace("file://", "");
 
 			if (file_base == desktop_file_uri) { // Copying from the Desktop to Desktop
-				continue; // How about...no?
+				continue; // basically nothing to-do since they are the same
 			}
 
 			var can = new Cancellable(); // Create a new cancellable stack
@@ -768,7 +812,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 			do_create = true; // Going to be creating a new FileItem for new file
 			do_delete = true; // Going to be deleting old FileItem for old file
 			create_file_ref = other_file; // Set to other_file since that is set for RENAMED
-			delete_file_ref = file; // file ist he old file
+			delete_file_ref = file; // file list the old file
 		} else if ((type == FileMonitorEvent.MOVED_IN) || (type == FileMonitorEvent.CREATED)) { // File was created in or moved to our Desktop folder
 			do_create = true;
 			create_file_ref = file;
@@ -888,13 +932,13 @@ public class DesktopView : Gtk.ApplicationWindow {
 		bool is_esc_key = key.keyval == 65307;
 
 		if (is_arrow_key && !have_selected_children) { // No child selected and not the escape key
-            foreach (Gtk.Widget item in flow.get_children()) {
-                if (item.is_visible()) {
-                    flow.select_child((Gtk.FlowBoxChild) item);
-                    set_focus((Gtk.FlowBoxChild) item);
-                    break;
-                }
-            }
+			foreach (Gtk.Widget item in flow.get_children()) {
+				if (item.is_visible()) {
+					flow.select_child((Gtk.FlowBoxChild) item);
+					set_focus((Gtk.FlowBoxChild) item);
+					break;
+				}
+			}
 
 			return Gdk.EVENT_STOP;
 		} else if ((is_delete_key || is_enter_key) && have_selected_children) { // Pressed the delete or enter key while having a child selected
@@ -1076,6 +1120,19 @@ public class DesktopView : Gtk.ApplicationWindow {
 	// e.g. cc.svg should be before cc-amex.svg as well as handle locales
 	// This also has the by-product of being faster. So yay.
 	private int sorter(FlowBoxChild child_one, FlowBoxChild child_two) {
+		// If using custom positions, sort by those first
+		if (using_custom_positions) {
+			DesktopItem item1 = (DesktopItem) child_one;
+			DesktopItem item2 = (DesktopItem) child_two;
+
+			int pos1 = get_item_custom_position(item1);
+			int pos2 = get_item_custom_position(item2);
+
+			if (pos1 != -1 && pos2 != -1) {
+				return pos1 - pos2;
+			}
+		}
+
 		DesktopItem c1 = (DesktopItem) child_one;
 		DesktopItem c2 = (DesktopItem) child_two;
 
@@ -1122,5 +1179,818 @@ public class DesktopView : Gtk.ApplicationWindow {
 		// N.B. MARGIN * 2 takes into account flow start & end spacing
 		get_item_size(); // Update desired item spacing
 		enforce_content_limit();
+	}
+
+	// =================================================================
+	// Drag and Drop Icon Repositioning Functions
+	// =================================================================
+
+	// get_positions_file_path returns the full path to the positions file
+	private string get_positions_file_path() {
+		string config_dir = Path.build_filename(Environment.get_home_dir(), POSITIONS_DIR);
+		return Path.build_filename(config_dir, POSITIONS_FILE);
+	}
+
+	// is_auto_arranged returns true if we're using default alphabetical sorting
+	private bool is_auto_arranged() {
+		return !using_custom_positions;
+	}
+
+	// ensure_positions_directory creates the config directory if it doesn't exist
+	private bool ensure_positions_directory() {
+		string config_dir = Path.build_filename(Environment.get_home_dir(), POSITIONS_DIR);
+		File dir = File.new_for_path(config_dir);
+
+		if (!dir.query_exists()) {
+			try {
+				dir.make_directory_with_parents();
+				debug("Created positions directory: %s", config_dir);
+				return true;
+			} catch (Error e) {
+				warning("Failed to create positions directory: %s", e.message);
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// get_item_identifier returns a unique identifier for an item
+	private string get_item_identifier(DesktopItem item) {
+		if (item.is_mount) {
+			MountItem mount_item = (MountItem) item;
+			return "mount:" + mount_item.uuid;
+		} else if (item.is_special) {
+			FileItem file_item = (FileItem) item;
+			return "special:" + file_item.file_type;
+		} else {
+			// Use file path instead of label_name to ensure uniqueness
+			// (multiple files can have the same display name)
+			FileItem file_item = (FileItem) item;
+			string file_path = file_item.file.get_path();
+			return "file:" + file_path;
+		}
+	}
+
+	// load_custom_positions loads saved icon positions from file
+	private void load_custom_positions() {
+		custom_positions = new HashTable<string, int>(str_hash, str_equal);
+
+		string positions_file = get_positions_file_path();
+		File file = File.new_for_path(positions_file);
+
+		if (!file.query_exists()) {
+			debug("No custom positions file found at: %s", positions_file);
+			using_custom_positions = false;
+			return;
+		}
+
+		try {
+			string contents;
+			uint8[] contents_data;
+			file.load_contents(null, out contents_data, null);
+			contents = (string) contents_data;
+
+			string[] lines = contents.split("\n");
+			int valid_entries = 0;
+
+			foreach (string line in lines) {
+				string trimmed = line.strip();
+				if (trimmed.length == 0 || trimmed.has_prefix("#")) {
+					continue;
+				}
+
+				string[] parts = trimmed.split("=");
+				if (parts.length != 2) {
+					warning("Invalid position entry format: %s", line);
+					continue;
+				}
+
+				string identifier = parts[0].strip();
+				string position_str = parts[1].strip();
+
+				int64 position;
+				if (!int64.try_parse(position_str, out position)) {
+					warning("Invalid position value for %s: %s", identifier, position_str);
+					continue;
+				}
+
+				if (position < 0) {
+					warning("Negative position value for %s: %lld", identifier, position);
+					continue;
+				}
+
+				custom_positions.set(identifier, (int) position);
+				valid_entries++;
+			}
+
+			if (valid_entries > 0) {
+				using_custom_positions = true;
+				debug("Loaded %d custom icon positions from: %s", valid_entries, positions_file);
+			} else {
+				warning("No valid position entries found in: %s", positions_file);
+				using_custom_positions = false;
+			}
+		} catch (Error e) {
+			warning("Failed to load custom positions from %s: %s", positions_file, e.message);
+			using_custom_positions = false;
+		}
+	}
+
+	// save_custom_positions_to_file saves the current custom_positions hash table to file
+	private void save_custom_positions_to_file() {
+		if (!ensure_positions_directory()) {
+			return;
+		}
+
+		string positions_file = get_positions_file_path();
+		File file = File.new_for_path(positions_file);
+
+		StringBuilder content = new StringBuilder();
+		content.append("# Budgie Desktop View Icon Positions\n");
+		content.append("# Format: identifier=position\n");
+		content.append("# Do not edit manually unless you know what you're doing\n\n");
+
+		// Save directly from the custom_positions hash table
+		// Do NOT rebuild from children - that would overwrite manual changes
+		int count = 0;
+		List<unowned string> keys = custom_positions.get_keys();
+
+		// Sort entries by position value for cleaner file output
+		keys.sort((a, b) => {
+			int pos_a = custom_positions.get(a);
+			int pos_b = custom_positions.get(b);
+			return pos_a - pos_b;
+		});
+
+		foreach (unowned string identifier in keys) {
+			int position = custom_positions.get(identifier);
+			content.append_printf("%s=%d\n", identifier, position);
+			count++;
+		}
+
+		try {
+			file.replace_contents(content.str.data, null, false, FileCreateFlags.NONE, null);
+			debug("Saved %d icon positions to file: %s", count, positions_file);
+		} catch (Error e) {
+			warning("Failed to save custom positions to %s: %s", positions_file, e.message);
+		}
+	}
+
+	// on_toggle_auto_arrange handles the user toggling the auto-arrange menu item
+	private void on_toggle_auto_arrange() {
+		bool current_state = is_auto_arranged();
+
+		if (current_state) {
+			// Currently auto-arranged, user wants manual control
+			// Initialize positions based on current order so they can start rearranging
+			initialize_all_positions();
+			save_custom_positions_to_file();
+			desktop_menu.set_auto_arrange_state(false);
+		} else {
+			// Currently manual, user wants auto-arrange
+			// Delete positions file and revert to alphabetical
+			disable_custom_positions();
+			desktop_menu.set_auto_arrange_state(true);
+		}
+	}
+
+	// disable_custom_positions removes the positions file and reverts to default sorting
+	private void disable_custom_positions() {
+		string positions_file = get_positions_file_path();
+		File file = File.new_for_path(positions_file);
+
+		if (file.query_exists()) {
+			try {
+				file.delete();
+				debug("Deleted custom positions file: %s", positions_file);
+			} catch (Error e) {
+				warning("Failed to delete positions file %s: %s", positions_file, e.message);
+			}
+		}
+
+		custom_positions.remove_all();
+		using_custom_positions = false;
+		flow.invalidate_sort();
+	}
+
+	// update_auto_arrange_menu updates the menu check state
+	private void update_auto_arrange_menu() {
+		if (desktop_menu == null) {
+			return;
+		}
+
+		desktop_menu.set_auto_arrange_state(is_auto_arranged());
+	}
+
+	// get_item_custom_position returns the custom position for an item, or -1 if none
+	private int get_item_custom_position(DesktopItem item) {
+		if (!using_custom_positions) {
+			return -1;
+		}
+
+		string identifier = get_item_identifier(item);
+		if (custom_positions.contains(identifier)) {
+			return custom_positions.get(identifier);
+		}
+		return -1;
+	}
+
+	// setup_flowbox_drag_dest sets up the flowbox as a drag destination
+	private void setup_flowbox_drag_dest() {
+		Gtk.TargetEntry[] targets = {
+			{ "BUDGIE_DESKTOP_ITEM", Gtk.TargetFlags.SAME_APP, 0 },
+			{ "text/uri-list", 0, 1 },
+			{ "application/x-desktop", 0, 2 }
+		};
+
+		Gtk.drag_dest_set(flow, Gtk.DestDefaults.MOTION, targets, Gdk.DragAction.MOVE | Gdk.DragAction.COPY);
+		flow.drag_motion.connect(on_flowbox_drag_motion);
+		flow.drag_leave.connect(on_flowbox_drag_leave);
+		flow.drag_drop.connect(on_flowbox_drag_drop);
+		flow.drag_data_received.connect(on_drag_data_received);
+	}
+
+	// setup_item_drag_source sets up an item as a drag source
+	private void setup_item_drag_source(DesktopItem item) {
+		Gtk.TargetEntry[] targets = {
+			{ "BUDGIE_DESKTOP_ITEM", Gtk.TargetFlags.SAME_APP, 0 }
+		};
+
+		Gtk.drag_source_set(item, Gdk.ModifierType.BUTTON1_MASK, targets, Gdk.DragAction.MOVE);
+		item.drag_begin.connect(on_item_drag_begin);
+		item.drag_end.connect(on_item_drag_end);
+		item.drag_data_get.connect(on_item_drag_data_get);
+	}
+
+	// setup_item_drag_dest sets up an item as a drag destination
+	private void setup_item_drag_dest(DesktopItem item) {
+		Gtk.TargetEntry[] targets = {
+			{ "BUDGIE_DESKTOP_ITEM", Gtk.TargetFlags.SAME_APP, 0 },
+			{ "text/uri-list", 0, 1 },
+			{ "application/x-desktop", 0, 2 }
+		};
+
+		Gtk.drag_dest_set(item, Gtk.DestDefaults.MOTION, targets, Gdk.DragAction.MOVE | Gdk.DragAction.COPY);
+		item.drag_motion.connect(on_item_drag_motion);
+		item.drag_leave.connect(on_item_drag_leave);
+		item.drag_drop.connect(on_item_drag_drop);
+		item.drag_data_received.connect(on_item_drag_data_received);
+	}
+
+	// on_item_drag_begin handles the start of a drag operation
+	private void on_item_drag_begin(Widget widget, Gdk.DragContext context) {
+		DesktopItem item = (DesktopItem) widget;
+		drag_primary_item = item;
+		drag_source_items = new List<DesktopItem>();
+
+		// Get all selected items
+		List<weak FlowBoxChild> selected = flow.get_selected_children();
+
+		if (selected.length() == 0) {
+			// Nothing selected, just drag this item
+			drag_source_items.append(item);
+			debug("Drag begin for single item: %s", item.label_name);
+		} else {
+			// Drag all selected items
+			foreach (weak FlowBoxChild child in selected) {
+				DesktopItem selected_item = (DesktopItem) child;
+				drag_source_items.append(selected_item);
+				selected_item.set_opacity(DRAG_OPACITY);
+			}
+			debug("Drag begin for %u selected items", drag_source_items.length());
+		}
+
+		 // Set opacity to indicate dragging
+		if (selected.length() == 0) {
+			item.set_opacity(DRAG_OPACITY);
+		}
+
+		 List<weak Widget> children = flow.get_children();
+
+		foreach (DesktopItem drag_item in drag_source_items) {
+			int item_index = children.index(drag_item);
+			debug("  Dragging: %s (index %d)", drag_item.label_name, item_index);
+		}
+	}
+
+	// on_item_drag_end handles the end of a drag operation
+	private void on_item_drag_end(Widget widget, Gdk.DragContext context) {
+		// Restore opacity for all dragged items
+		if (drag_source_items != null) {
+			foreach (DesktopItem item in drag_source_items) {
+				item.set_opacity(1.0);
+			}
+		}
+
+		drag_source_items = null;
+		drag_primary_item = null;
+		drag_insert_index = -1;
+
+		// Remove any visual indicators
+		List<weak Widget> children = flow.get_children();
+		foreach (weak Widget child in children) {
+			DesktopItem desktop_item = (DesktopItem) child;
+			desktop_item.get_style_context().remove_class("drag-insert-before");
+			desktop_item.get_style_context().remove_class("drag-insert-after");
+			desktop_item.get_style_context().remove_class("drag-swap-target");
+		}
+
+		debug("Drag end");
+	}
+
+	// on_item_drag_data_get provides data for the drag operation
+	private void on_item_drag_data_get(Widget widget, Gdk.DragContext context,
+										Gtk.SelectionData data, uint info, uint time) {
+		// Send count of items being dragged
+		if (drag_source_items != null) {
+			string drag_data = "%u".printf(drag_source_items.length());
+			data.set_text(drag_data, -1);
+			debug("Drag data get: %u items", drag_source_items.length());
+		}
+	}
+
+	// on_item_drag_motion handles drag motion over an item
+	private bool on_item_drag_motion(Widget widget, Gdk.DragContext context,
+									  int x, int y, uint time) {
+		DesktopItem target_item = (DesktopItem) widget;
+
+		if (drag_source_items == null || drag_source_items.length() == 0) {
+			 Gdk.drag_status(context, 0, time);
+			 return false;
+		 }
+
+		// Don't allow dropping on any of the items being dragged
+		foreach (DesktopItem source_item in drag_source_items) {
+			if (source_item == target_item) {
+				Gdk.drag_status(context, 0, time);
+				return false;
+			}
+		}
+
+		// Get target item dimensions
+		Gtk.Allocation alloc;
+		target_item.get_allocation(out alloc);
+
+		// Determine if we're hovering over the item (for swap) or between items (for insert)
+		int edge_threshold = alloc.height / 4;
+
+		// For multiple items, only allow insert mode (not swap)
+		bool multi_drag = (drag_source_items.length() > 1);
+
+		// Clear previous indicators
+		List<weak Widget> children = flow.get_children();
+		foreach (weak Widget child in children) {
+			DesktopItem item = (DesktopItem) child;
+			item.get_style_context().remove_class("drag-insert-before");
+			item.get_style_context().remove_class("drag-insert-after");
+			item.get_style_context().remove_class("drag-swap-target");
+		}
+
+		if (y < edge_threshold) {
+			// Insert before this item
+			target_item.get_style_context().add_class("drag-insert-before");
+			Gdk.drag_status(context, Gdk.DragAction.MOVE, time);
+			string mode = multi_drag ? "insert group before" : "insert before";
+			debug("Drag motion: %s %s", mode, target_item.label_name);
+			return true;
+		} else if (y > alloc.height - edge_threshold) {
+			// Insert after this item (visual indicator on next item)
+			int target_index = children.index(target_item);
+			if (target_index + 1 < (int)children.length()) {
+				DesktopItem next_item = (DesktopItem) children.nth_data(target_index + 1);
+				next_item.get_style_context().add_class("drag-insert-before");
+			}
+			Gdk.drag_status(context, Gdk.DragAction.MOVE, time);
+			string mode = multi_drag ? "insert group after" : "insert after";
+			debug("Drag motion: %s %s", mode, target_item.label_name);
+			return true;
+		} else if (!multi_drag) {
+			// Swap with this item
+			target_item.get_style_context().add_class("drag-swap-target");
+			Gdk.drag_status(context, Gdk.DragAction.MOVE, time);
+			debug("Drag motion: swap with %s", target_item.label_name);
+			return true;
+		} else {
+			// Multi-select in middle area - treat as insert before
+			target_item.get_style_context().add_class("drag-insert-before");
+			Gdk.drag_status(context, Gdk.DragAction.MOVE, time);
+			debug("Drag motion: insert group before %s", target_item.label_name);
+			return true;
+		}
+	}
+
+	// on_item_drag_leave handles drag leaving an item
+	private void on_item_drag_leave(Widget widget, Gdk.DragContext context, uint time) {
+		DesktopItem item = (DesktopItem) widget;
+		item.get_style_context().remove_class("drag-insert-before");
+		item.get_style_context().remove_class("drag-swap-target");
+	}
+
+	// on_item_drag_drop handles dropping on an item
+	private bool on_item_drag_drop(Widget widget, Gdk.DragContext context,
+									int x, int y, uint time) {
+		DesktopItem target_item = (DesktopItem) widget;
+
+		if (drag_source_items == null || drag_source_items.length() == 0) {
+			warning("Drag drop on %s but drag_source_items is null/empty", target_item.label_name);
+			return false;
+		}
+
+		// Check if target is one of the dragged items
+		foreach (DesktopItem source_item in drag_source_items) {
+			if (source_item == target_item) {
+				debug("Drag drop on dragged item (%s), ignoring", target_item.label_name);
+				return false;
+			}
+		}
+
+		debug("Drag drop on %s, requesting data", target_item.label_name);
+		Gtk.drag_get_data(widget, context, Gdk.Atom.intern_static_string("BUDGIE_DESKTOP_ITEM"), time);
+		clear_selection(); // Clear any selection
+		return true;
+	}
+
+	// on_item_drag_data_received handles the dropped data on an item
+	private void on_item_drag_data_received(Widget widget, Gdk.DragContext context,
+											 int x, int y, Gtk.SelectionData data,
+											 uint info, uint time) {
+		// Check if this is an external drop (from file manager) or internal repositioning
+		string data_type = data.get_data_type().name();
+		debug("Drag data received on item: type=%s, info=%u", data_type, info);
+
+		if (info == 1 || info == 2) {
+			// This is an external drop (text/uri-list or application/x-desktop)
+			// Forward to the main window's drag handler
+			debug("External drop detected, forwarding to window handler");
+			on_drag_data_received(this, context, x, y, data, info, time);
+			return;
+		}
+
+		// Otherwise, this is internal repositioning (info == 0, BUDGIE_DESKTOP_ITEM)
+		handle_internal_reposition_drop(widget, context, x, y, data, info, time);
+	}
+
+	// handle_internal_reposition_drop handles dropping for icon repositioning
+	private void handle_internal_reposition_drop(Widget widget, Gdk.DragContext context,
+												  int x, int y, Gtk.SelectionData data,
+												  uint info, uint time) {
+		debug("Internal reposition drop");
+		if (drag_source_items == null || drag_source_items.length() == 0) {
+			warning("Drag data received but drag_source_items is null/empty");
+			Gtk.drag_finish(context, false, false, time);
+			return;
+		}
+
+		DesktopItem target_item = (DesktopItem) widget;
+
+		// Check if target is one of the dragged items
+		foreach (DesktopItem source_item in drag_source_items) {
+			if (source_item == target_item) {
+				Gtk.drag_finish(context, false, false, time);
+				warning("Drag data received: target is one of the dragged items");
+			 	return;
+			}
+		}
+
+		List<weak Widget> children = flow.get_children();
+		int target_index = children.index(target_item);
+
+		if (target_index == -1) {
+			Gtk.drag_finish(context, false, false, time);
+			warning("Drag data received: could not find target in flowbox");
+			return;
+		}
+
+		// Get target item dimensions to determine operation
+		Gtk.Allocation alloc;
+		target_item.get_allocation(out alloc);
+		int edge_threshold = alloc.height / 4;
+
+		bool multi_drag = (drag_source_items.length() > 1);
+
+		if (y < edge_threshold || (multi_drag && y >= edge_threshold && y <= alloc.height - edge_threshold)) {
+			// Insert before target
+			perform_multi_insert_operation(target_index, true);
+			debug("Dropping: insert %u item(s) before %s", drag_source_items.length(), target_item.label_name);
+		 } else if (y > alloc.height - edge_threshold) {
+			// Insert after target
+			perform_multi_insert_operation(target_index, false);
+			debug("Dropping: insert %u item(s) after %s", drag_source_items.length(), target_item.label_name);
+		} else if (!multi_drag) {
+			 // Swap positions
+			int source_index = children.index(drag_source_items.nth_data(0));
+			perform_swap_operation(source_index, target_index);
+			debug("Dropping: swap with %s", target_item.label_name);
+		} else {
+			// Should not reach here
+			warning("Unexpected drop location for multi-drag");
+			Gtk.drag_finish(context, false, false, time);
+			return;
+		}
+
+		Gtk.drag_finish(context, true, false, time);
+	}
+
+	// on_flowbox_drag_motion handles drag motion over empty flowbox areas
+	private bool on_flowbox_drag_motion(Widget widget, Gdk.DragContext context,
+										 int x, int y, uint time) {
+		// Allow dropping in empty areas
+		if (drag_source_items == null || drag_source_items.length() == 0) {
+			return false;
+		}
+
+		// Check what type of drag this is
+		Gdk.Atom target = Gtk.drag_dest_find_target(widget, context, null);
+		if (target.name() == "text/uri-list" || target.name() == "application/x-desktop") {
+			// This is an external drop
+			debug("Flowbox drag motion: external drop detected");
+			Gdk.drag_status(context, Gdk.DragAction.COPY, time);
+			return true;
+		}
+
+		// Indicate we can drop in empty areas (to append to end)
+		Gdk.drag_status(context, Gdk.DragAction.MOVE, time);
+
+		// Clear any item-specific visual indicators since we're over empty space
+		List<weak Widget> children = flow.get_children();
+		foreach (weak Widget child in children) {
+			DesktopItem item = (DesktopItem) child;
+			item.get_style_context().remove_class("drag-insert-before");
+			item.get_style_context().remove_class("drag-swap-target");
+		}
+
+		// Add visual indicator to the last item to show we'll append after it
+		if (children.length() > 0) {
+			DesktopItem last_item = (DesktopItem) children.nth_data(children.length() - 1);
+			// Don't highlight if it's one of the dragged items
+			bool is_dragged = false;
+			foreach (DesktopItem source_item in drag_source_items) {
+				if (last_item == source_item) is_dragged = true;
+			}
+			if (!is_dragged) {
+				last_item.get_style_context().add_class("drag-insert-after");
+			}
+		}
+
+		debug("Drag motion over empty flowbox area at (%d, %d) - will append %u item(s) to end", x, y, drag_source_items.length());
+		return true;
+	}
+
+	// on_flowbox_drag_leave handles drag leaving the flowbox
+	private void on_flowbox_drag_leave(Widget widget, Gdk.DragContext context, uint time) {
+		drag_insert_index = -1;
+
+		// Clear the append indicator
+		List<weak Widget> children = flow.get_children();
+		foreach (weak Widget child in children) {
+			DesktopItem item = (DesktopItem) child;
+			item.get_style_context().remove_class("drag-insert-after");
+		}
+
+		debug("Drag left flowbox");
+	}
+
+	// on_flowbox_drag_drop handles dropping on empty flowbox areas
+	private bool on_flowbox_drag_drop(Widget widget, Gdk.DragContext context,
+									   int x, int y, uint time) {
+		// Check what type of drag this is
+		Gdk.Atom target = Gtk.drag_dest_find_target(widget, context, null);
+		debug("Flowbox drag drop: target=%s", target.name());
+
+		if (target.name() == "text/uri-list" || target.name() == "application/x-desktop") {
+			// This is an external drop, get the data and forward to main handler
+			debug("External drop on flowbox, requesting data");
+			Gtk.drag_get_data(widget, context, target, time);
+			// The data will be received by the window's drag_data_received handler
+			// since flowbox doesn't have its own handler connected
+			return true;
+		}
+
+		if (drag_source_items == null || drag_source_items.length() == 0) {
+			warning("Drag drop on flowbox but drag_source_items is null/empty");
+			return false;
+		}
+
+		debug("Drag drop on empty flowbox area at (%d, %d) - appending %u item(s) to end", x, y, drag_source_items.length());
+		perform_multi_append_operation();
+
+		Gtk.drag_finish(context, true, false, time);
+		clear_selection(); // Clear any selection
+		return true;
+	}
+
+	// perform_multi_append_operation appends multiple items to the end
+	private void perform_multi_append_operation() {
+		initialize_all_positions();
+
+		List<weak Widget> children = flow.get_children();
+
+		// Get indices of all dragged items
+		List<int> source_indices = new List<int>();
+		foreach (DesktopItem source_item in drag_source_items) {
+			int idx = children.index(source_item);
+			if (idx != -1) {
+				source_indices.append(idx);
+			}
+		}
+
+		// Sort indices to maintain relative order
+		source_indices.sort((a, b) => a - b);
+
+		debug("Appending %u items to end", source_indices.length());
+		// Rebuild positions, skipping dragged items, then adding them at the end
+		custom_positions.remove_all();
+
+		int new_position = 0;
+
+		// First, add all non-dragged items
+		for (int i = 0; i < (int)children.length(); i++) {
+			if (source_indices.index(i) != -1) {
+				// This is a dragged item, skip it for now
+				DesktopItem skipped = (DesktopItem) children.nth_data(i);
+				debug("Skipping dragged item at position %d: %s", i, skipped.label_name);
+				continue;
+			}
+
+			DesktopItem current_item = (DesktopItem) children.nth_data(i);
+			string current_id = get_item_identifier(current_item);
+			custom_positions.set(current_id, new_position);
+			debug("Positioned %s at %d", current_item.label_name, new_position);
+			new_position++;
+		}
+
+		// Now add all dragged items at the end (in their original relative order)
+		foreach (int source_idx in source_indices) {
+			DesktopItem source_item = (DesktopItem) children.nth_data(source_idx);
+			string source_id = get_item_identifier(source_item);
+			custom_positions.set(source_id, new_position);
+			debug("Positioned %s at %d (appended)", source_item.label_name, new_position);
+			new_position++;
+		}
+
+		debug("Total positions set: %d, Hash table size: %u", new_position, custom_positions.size());
+
+		save_custom_positions_to_file();
+		flow.invalidate_sort();
+		flow.queue_draw();
+
+		debug("Append complete: %u items moved to end", source_indices.length());
+	}
+
+	// perform_multi_insert_operation inserts multiple items before or after target
+	private void perform_multi_insert_operation(int target_index, bool before) {
+		initialize_all_positions();
+
+		List<weak Widget> children = flow.get_children();
+
+		// Get indices of all dragged items
+		List<int> source_indices = new List<int>();
+		foreach (DesktopItem source_item in drag_source_items) {
+			int idx = children.index(source_item);
+			if (idx != -1) {
+				source_indices.append(idx);
+			}
+		}
+
+		// Sort indices to maintain relative order
+		source_indices.sort((a, b) => a - b);
+
+		int insert_index = before ? target_index : target_index + 1;
+
+		// Adjust insert index based on how many dragged items are before the target
+		int items_before_target = 0;
+		 for (int i = 0; i < (int)children.length(); i++) {
+			if (i < target_index && source_indices.index(i) != -1) {
+				items_before_target++;
+			}
+		}
+
+		// Adjust insert index
+		if (before) {
+			insert_index -= items_before_target;
+		} else {
+			insert_index -= items_before_target;
+		}
+
+		debug("Performing multi-insert: %u items at position %d (before=%s)",
+				source_indices.length(), insert_index, before ? "true" : "false");
+
+		// Rebuild all positions
+		custom_positions.remove_all();
+
+		int new_position = 0;
+		bool inserted = false;
+
+		for (int i = 0; i < (int)children.length(); i++) {
+			// Skip dragged items
+			if (source_indices.index(i) != -1) {
+				 continue;
+			 }
+
+			// Check if we need to insert the dragged items here
+			if (new_position == insert_index && !inserted) {
+				foreach (int source_idx in source_indices) {
+					DesktopItem source_item = (DesktopItem) children.nth_data(source_idx);
+					string source_id = get_item_identifier(source_item);
+					custom_positions.set(source_id, new_position);
+					debug("Positioned %s at %d (inserted)", source_item.label_name, new_position);
+					new_position++;
+				}
+				inserted = true;
+			}
+
+			 DesktopItem current_item = (DesktopItem) children.nth_data(i);
+			 string current_id = get_item_identifier(current_item);
+			 custom_positions.set(current_id, new_position);
+			 debug("Positioned %s at %d", current_item.label_name, new_position);
+			 new_position++;
+		 }
+
+		// If we haven't inserted yet (insert_index was at or past end), add them now
+		if (!inserted) {
+			foreach (int source_idx in source_indices) {
+				DesktopItem source_item = (DesktopItem) children.nth_data(source_idx);
+				string source_id = get_item_identifier(source_item);
+				custom_positions.set(source_id, new_position);
+				debug("Positioned %s at %d (appended)", source_item.label_name, new_position);
+				new_position++;
+			}
+		}
+
+		debug("Total positions set: %d, Hash table size: %u", new_position, custom_positions.size());
+
+		save_custom_positions_to_file();
+		flow.invalidate_sort();
+		flow.queue_draw();
+
+		debug("Multi-insert complete: %u items inserted at position %d", source_indices.length(), insert_index);
+	}
+
+	// initialize_all_positions creates custom positions for all current items based on current order
+	private void initialize_all_positions() {
+		if (using_custom_positions && custom_positions.size() > 0) {
+			// Already initialized
+			return;
+		}
+
+		debug("Initializing custom positions for all items");
+		custom_positions.remove_all();
+
+		List<weak Widget> children = flow.get_children();
+		int position = 0;
+
+		foreach (weak Widget child in children) {
+			DesktopItem item = (DesktopItem) child;
+			string identifier = get_item_identifier(item);
+
+			if (custom_positions.contains(identifier)) {
+				warning("Duplicate identifier detected during initialization: %s (already at position %d, trying to set to %d)",
+						identifier, custom_positions.get(identifier), position);
+			}
+
+			custom_positions.set(identifier, position);
+			debug("Initialized position %d for: %s", position, item.label_name);
+			position++;
+		}
+
+		using_custom_positions = true;
+		debug("Hash table contains %u entries", custom_positions.size());
+
+		// Update menu to show we're now in manual mode
+		update_auto_arrange_menu();
+	}
+
+	// perform_swap_operation swaps two items in the flowbox
+	private void perform_swap_operation(int source_index, int target_index) {
+		debug("Performing swap: source=%d, target=%d", source_index, target_index);
+
+		// Initialize all positions if this is the first drag operation
+		initialize_all_positions();
+
+		List<weak Widget> children = flow.get_children();
+		DesktopItem source_item = (DesktopItem) children.nth_data(source_index);
+		DesktopItem target_item = (DesktopItem) children.nth_data(target_index);
+
+		string source_id = get_item_identifier(source_item);
+		string target_id = get_item_identifier(target_item);
+
+		debug("Swapping positions: %s (pos %d) <-> %s (pos %d)",
+				source_item.label_name, source_index, target_item.label_name, target_index);
+
+		// Update positions in hash table by swapping them
+		custom_positions.set(source_id, target_index);
+		custom_positions.set(target_id, source_index);
+
+		debug("Updated positions in memory: %s->%d, %s->%d",
+				source_id, target_index, target_id, source_index);
+
+		// Force the flowbox to re-sort with new positions
+		// This ensures the visual order matches our saved positions
+		flow.invalidate_sort();
+
+		// Save the swapped positions to file
+		save_custom_positions_to_file();
+
+		debug("Swap complete: %s <-> %s", source_item.label_name, target_item.label_name);
 	}
 }
