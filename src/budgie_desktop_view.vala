@@ -27,7 +27,7 @@ public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
 public const int MARGIN = 20; // pixel spacing for left/right
 
 // Drag and drop constants
-public const string POSITIONS_DIR = ".config/budgie-desktop-view";
+public const string POSITIONS_DIR = "budgie-desktop-view";
 public const string POSITIONS_FILE = "icon-positions.conf";
 public const double DRAG_OPACITY = 0.5;
 
@@ -1187,7 +1187,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// get_positions_file_path returns the full path to the positions file
 	private string get_positions_file_path() {
-		string config_dir = Path.build_filename(Environment.get_home_dir(), POSITIONS_DIR);
+		string config_dir = Path.build_filename(Environment.get_user_config_dir(), POSITIONS_DIR);
 		return Path.build_filename(config_dir, POSITIONS_FILE);
 	}
 
@@ -1196,22 +1196,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		return !using_custom_positions;
 	}
 
-	// ensure_positions_directory creates the config directory if it doesn't exist
-	private bool ensure_positions_directory() {
-		string config_dir = Path.build_filename(Environment.get_home_dir(), POSITIONS_DIR);
-		File dir = File.new_for_path(config_dir);
-
-		if (!dir.query_exists()) {
-			try {
-				dir.make_directory_with_parents();
-				debug("Created positions directory: %s", config_dir);
-				return true;
-			} catch (Error e) {
-				warning("Failed to create positions directory: %s", e.message);
-				return false;
-			}
-		}
-		return true;
+	// get_config_directory_path returns the config directory path
+	private string get_config_directory_path() {
+		return Path.build_filename(Environment.get_user_config_dir(), POSITIONS_DIR);
 	}
 
 	// get_item_identifier returns a unique identifier for an item
@@ -1245,23 +1232,25 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		try {
-			string contents;
-			uint8[] contents_data;
-			file.load_contents(null, out contents_data, null);
-			contents = (string) contents_data;
-
-			string[] lines = contents.split("\n");
+			var file_stream = file.read();
+			var data_stream = new DataInputStream(file_stream);
+			string[] lines = {};
+			string? line;
 			int valid_entries = 0;
 
-			foreach (string line in lines) {
-				string trimmed = line.strip();
+			while ((line = data_stream.read_line(null)) != null) {
+				lines += line;
+			}
+
+			foreach (string current_line in lines) {
+				string trimmed = current_line.strip();
 				if (trimmed.length == 0 || trimmed.has_prefix("#")) {
 					continue;
 				}
 
 				string[] parts = trimmed.split("=");
 				if (parts.length != 2) {
-					warning("Invalid position entry format: %s", line);
+					warning("Invalid position entry format: %s", current_line);
 					continue;
 				}
 
@@ -1291,14 +1280,23 @@ public class DesktopView : Gtk.ApplicationWindow {
 				using_custom_positions = false;
 			}
 		} catch (Error e) {
-			warning("Failed to load custom positions from %s: %s", positions_file, e.message);
+			warning("Failed to load custom positions: %s", e.message);
 			using_custom_positions = false;
 		}
 	}
 
 	// save_custom_positions_to_file saves the current custom_positions hash table to file
 	private void save_custom_positions_to_file() {
-		if (!ensure_positions_directory()) {
+		string config_dir = get_config_directory_path();
+
+		try {
+			File dir = File.new_for_path(config_dir);
+			if (!dir.query_exists()) {
+				dir.make_directory_with_parents();
+				debug("Created positions directory: %s", config_dir);
+			}
+		} catch (Error e) {
+			warning("Failed to create positions directory: %s", e.message);
 			return;
 		}
 
@@ -1329,7 +1327,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		try {
-			file.replace_contents(content.str.data, null, false, FileCreateFlags.NONE, null);
+			var file_stream = file.replace(null, false, FileCreateFlags.NONE);
+			var data_stream = new DataOutputStream(file_stream);
+			data_stream.put_string(content.str);
 			debug("Saved %d icon positions to file: %s", count, positions_file);
 		} catch (Error e) {
 			warning("Failed to save custom positions to %s: %s", positions_file, e.message);
