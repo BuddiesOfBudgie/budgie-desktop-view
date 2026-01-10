@@ -1234,23 +1234,18 @@ public class DesktopView : Gtk.ApplicationWindow {
 		try {
 			var file_stream = file.read();
 			var data_stream = new DataInputStream(file_stream);
-			string[] lines = {};
 			string? line;
 			int valid_entries = 0;
 
-			while ((line = data_stream.read_line(null)) != null) {
-				lines += line;
-			}
-
-			foreach (string current_line in lines) {
-				string trimmed = current_line.strip();
+			while ((line = data_stream.read_line()) != null) {
+				string trimmed = line.strip();
 				if (trimmed.length == 0 || trimmed.has_prefix("#")) {
 					continue;
 				}
 
 				string[] parts = trimmed.split("=");
 				if (parts.length != 2) {
-					warning("Invalid position entry format: %s", current_line);
+					warning("Invalid position entry format: %s", line);
 					continue;
 				}
 
