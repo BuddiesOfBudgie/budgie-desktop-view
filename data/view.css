@@ -47,3 +47,21 @@ limitations under the License.
 .debug {
   background: white;
 }
+
+/* Drag and drop visual indicators */
+.drag-insert-before {
+	border-top: 3px solid @theme_selected_bg_color;
+	margin-top: 3px;
+}
+
+.drag-insert-after {
+	border-bottom: 3px solid @theme_selected_bg_color;
+	margin-bottom: 3px;
+}
+
+.drag-swap-target {
+	background-color: alpha(@theme_selected_bg_color, 0.3);
+	border: 2px solid @theme_selected_bg_color;
+	border-radius: 8px;
+	transition: all 200ms ease-in-out;
+}
