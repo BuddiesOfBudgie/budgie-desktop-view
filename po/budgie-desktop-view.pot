@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: budgie-desktop-view 10.10.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-12-08 17:40+0200\n"
+"POT-Creation-Date: 2026-01-15 19:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,12 +17,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/desktop_menu.vala:33
+#: src/desktop_menu.vala:35
 msgid "Budgie Desktop Settings"
 msgstr ""
 
-#: src/desktop_menu.vala:34
+#: src/desktop_menu.vala:36
 msgid "System Settings"
+msgstr ""
+
+#: src/desktop_menu.vala:37
+msgid "Auto-arrange"
+msgstr ""
+
+#: src/budgie_desktop_view.vala:387
+msgid "Trash"
 msgstr ""
 
 #: src/file_menu.vala:38
@@ -39,10 +47,6 @@ msgstr ""
 
 #: src/file_menu.vala:42
 msgid "Move to Trash"
-msgstr ""
-
-#: src/budgie_desktop_view.vala:331
-msgid "Trash"
 msgstr ""
 
 #: src/desktop_item.vala:83
