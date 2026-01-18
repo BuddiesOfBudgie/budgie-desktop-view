@@ -164,7 +164,24 @@ public class FileItem : DesktopItem {
 		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
 			return emit_launch();
 		} else if (ev.button == 3) { // Right click
-			props.file_menu.set_item(this); // Set the FileItem on the FileMenu
+			// Get the flowbox to check if multiple items are selected
+			var parent = get_parent();
+			if (parent != null && parent is Gtk.FlowBox) {
+				Gtk.FlowBox flowbox = (Gtk.FlowBox) parent;
+				List<weak FlowBoxChild> selected = flowbox.get_selected_children();
+
+				List<FileItem> selected_items = new List<FileItem>();
+				foreach (weak FlowBoxChild child in selected) {
+					if (child is FileItem) {
+						selected_items.append((FileItem) child);
+					}
+				}
+
+				props.file_menu.set_item(this, selected_items); // Set the FileItem and selection on the FileMenu
+			} else {
+				props.file_menu.set_item(this, null); // Set just this item
+			}
+
 			props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
 			props.file_menu.show_open_in_terminal = ((app_info == null) && (keyfile == null));
 			props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
