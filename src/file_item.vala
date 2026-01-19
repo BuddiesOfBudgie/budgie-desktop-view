@@ -161,9 +161,22 @@ public class FileItem : DesktopItem {
 	// on_button_release handles when we've released our mouse button
 	// This is only intended to be used for left single click and right click
 	public bool on_button_release(EventButton ev) {
-		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
-			return emit_launch();
-		} else if (ev.button == 3) { // Right click
+		bool shift_down = (ev.state & Gdk.ModifierType.SHIFT_MASK) != 0;
+
+		if (ev.type == EventType.BUTTON_RELEASE && ev.button == 1) {
+			if (props.is_single_click && !shift_down) return emit_launch();
+			var parent = get_parent();
+			// Sanity check that parent is a FlowBox
+			if (parent != null && parent is Gtk.FlowBox) {
+				Gtk.FlowBox flowbox = (Gtk.FlowBox) parent;
+				// Select the casted child
+				flowbox.select_child((Gtk.FlowBoxChild) this);
+				return Gdk.EVENT_STOP; // Stop propagation to prevent flowbox from clearing selection
+			}
+			return Gdk.EVENT_PROPAGATE;
+		}
+
+		if (ev.button == 3) { // Right click
 			// Get the flowbox to check if multiple items are selected
 			var parent = get_parent();
 			if (parent != null && parent is Gtk.FlowBox) {
@@ -195,6 +208,7 @@ public class FileItem : DesktopItem {
 	// on_button_press handles when we've pressed our mouse button
 	// This is only used for double left click
 	public bool on_button_press(EventButton ev) {
+		bool shift_down = (ev.state & Gdk.ModifierType.SHIFT_MASK) != 0;
 		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
 			return emit_launch();
 		}
