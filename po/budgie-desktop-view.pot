@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: budgie-desktop-view 10.10.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-15 19:56+0000\n"
+"POT-Creation-Date: 2026-01-19 22:40+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,20 +33,32 @@ msgstr ""
 msgid "Trash"
 msgstr ""
 
-#: src/file_menu.vala:38
+#: src/file_menu.vala:39
 msgid "Cancel Copy"
 msgstr ""
 
-#: src/file_menu.vala:39
+#. Keep "Open in Terminal" singular - it only opens the first item
+#: src/file_menu.vala:40 src/file_menu.vala:199
 msgid "Open"
 msgstr ""
 
-#: src/file_menu.vala:40
+#: src/file_menu.vala:41
 msgid "Open in Terminal"
 msgstr ""
 
-#: src/file_menu.vala:42
+#: src/file_menu.vala:43 src/file_menu.vala:200
 msgid "Move to Trash"
+msgstr ""
+
+#. Update menu item labels based on selection count
+#: src/file_menu.vala:195
+#, c-format
+msgid "Open %u Items"
+msgstr ""
+
+#: src/file_menu.vala:196
+#, c-format
+msgid "Move %u Items to Trash"
 msgstr ""
 
 #: src/desktop_item.vala:83
