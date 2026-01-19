@@ -170,7 +170,12 @@ public class FileItem : DesktopItem {
 			if (parent != null && parent is Gtk.FlowBox) {
 				Gtk.FlowBox flowbox = (Gtk.FlowBox) parent;
 				// Select the casted child
-				flowbox.select_child((Gtk.FlowBoxChild) this);
+				Gtk.FlowBoxChild child = (Gtk.FlowBoxChild) this;
+				if (child.is_selected()) {
+					flowbox.unselect_child(child);
+				} else {
+					flowbox.select_child(child);
+				}
 				return Gdk.EVENT_STOP; // Stop propagation to prevent flowbox from clearing selection
 			}
 			return Gdk.EVENT_PROPAGATE;
