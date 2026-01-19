@@ -208,7 +208,6 @@ public class FileItem : DesktopItem {
 	// on_button_press handles when we've pressed our mouse button
 	// This is only used for double left click
 	public bool on_button_press(EventButton ev) {
-		bool shift_down = (ev.state & Gdk.ModifierType.SHIFT_MASK) != 0;
 		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
 			return emit_launch();
 		}
