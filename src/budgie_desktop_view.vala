@@ -24,6 +24,16 @@ public interface Raven : GLib.Object {
 
 public const string RAVEN_DBUS_NAME = "org.budgie_desktop.Raven";
 public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
+
+[DBus (name = "org.buddiesofbudgie.budgie.Background")]
+public interface BackgroundDBus : GLib.Object {
+	[DBus (visible = true)]
+	public signal void wallpaper_changing(string wallpaper_path, bool is_modified);
+}
+
+public const string BACKGROUND_DBUS_NAME = "org.buddiesofbudgie.budgie.Background";
+public const string BACKGROUND_DBUS_PATH = "/org/buddiesofbudgie/budgie/Background";
+
 public const int MARGIN = 20; // pixel spacing for left/right
 
 // Drag and drop constants
@@ -66,6 +76,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 	Rectangle? primary_monitor_geo = null;
 	UnifiedProps shared_props;
 	Raven? raven = null;
+	BackgroundDBus? background_proxy = null;
 
 	DesktopItemSize? item_size; // Default our Item Size to NORMAL
 	int? max_allocated_item_height;
@@ -228,22 +239,100 @@ public class DesktopView : Gtk.ApplicationWindow {
 			get_display_geo();
 		}
 
+		// Set up wallpaper change monitoring via DBus
+		Bus.watch_name(
+			BusType.SESSION,
+			BACKGROUND_DBUS_NAME,
+			BusNameWatcherFlags.NONE,
+			on_background_appeared,
+			on_background_vanished
+		);
+
+		// GSettings monitoring is used as fallback
 		desktop_settings = new GLib.Settings("org.gnome.desktop.background");
-		desktop_settings.changed.connect((key) => {
-			if (key == "picture-uri") {
-				/* the background picture has changed.  We need to refresh
-				   the icons - we do this by hiding everything, allow the
-				   wallpaper to show and then redisplaying.
-				*/
-				hide();
-				GLib.Timeout.add(200, () => {
-					on_show_changed();
-					return false;
-				});
-			}
-		});
+		desktop_settings.changed.connect(on_gsettings_wallpaper_changed);
 
 		Bus.watch_name(BusType.SESSION, RAVEN_DBUS_NAME, BusNameWatcherFlags.NONE, has_raven, on_raven_lost);
+	}
+
+	/**
+	* Called when Background DBus service appears
+	*/
+	private void on_background_appeared() {
+		if (background_proxy == null) {
+			Bus.get_proxy.begin<BackgroundDBus>(
+				BusType.SESSION,
+				BACKGROUND_DBUS_NAME,
+				BACKGROUND_DBUS_PATH,
+				DBusProxyFlags.NONE,
+				null,
+				on_background_proxy_ready
+			);
+		}
+	}
+
+	/**
+	* Called when Background DBus proxy is ready
+	*/
+	private void on_background_proxy_ready(Object? obj, AsyncResult? res) {
+		try {
+			background_proxy = Bus.get_proxy.end(res);
+			background_proxy.wallpaper_changing.connect(on_wallpaper_changing_dbus);
+			debug("Connected to Background DBus interface");
+		} catch (Error e) {
+			warning("Failed to connect to Background DBus: %s", e.message);
+			// GSettings fallback will be used
+		}
+	}
+
+	/**
+	* Called when Background DBus service vanishes
+	*/
+	private void on_background_vanished() {
+		background_proxy = null;
+		debug("background dbus vanished");
+	}
+
+	/**
+	* Handle wallpaper change via DBus signal
+	*/
+	private void on_wallpaper_changing_dbus(string wallpaper_path, bool is_modified) {
+		debug("Wallpaper changing via DBus signal");
+		debug("  Path: %s", wallpaper_path);
+		debug("  Modified: %s", is_modified.to_string());
+
+		// The wallpaper is about to change, refresh our icons
+		refresh_for_wallpaper_change();
+	}
+
+	/**
+	* Handle wallpaper change via GSettings (FALLBACK)
+	* i.e. if the budgie background dbus signal is not available for some reason
+	*/
+	private void on_gsettings_wallpaper_changed(string key) {
+		if (key == "picture-uri") {
+			// Only process if we don't have DBus connection
+			// (avoid duplicate processing)
+			if (background_proxy == null) {
+				debug("Wallpaper changed via GSettings (fallback method)");
+				refresh_for_wallpaper_change();
+			}
+		}
+	}
+
+	/**
+	* Refresh icons for wallpaper change
+	*/
+	private void refresh_for_wallpaper_change() {
+		/* The background picture has changed. We need to refresh
+		   the icons - we do this by hiding everything, allow the
+		   wallpaper to show and then redisplaying.
+		*/
+		hide();
+		GLib.Timeout.add(200, () => {
+			on_show_changed();
+			return false;
+		});
 	}
 
 	// clear_selection will clear the selection and focus of all flowbox children that are selected
