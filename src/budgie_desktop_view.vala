@@ -105,7 +105,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		);
 
 		GtkLayerShell.init_for_window(this);
-		GtkLayerShell.set_layer(this, GtkLayerShell.Layer.BACKGROUND);
+		GtkLayerShell.set_layer(this, GtkLayerShell.Layer.BOTTOM);
 		GtkLayerShell.set_anchor(
 			this,
 			GtkLayerShell.Edge.TOP | GtkLayerShell.Edge.LEFT,
