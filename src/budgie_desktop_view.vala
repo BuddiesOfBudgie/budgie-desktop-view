@@ -90,8 +90,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 	HashTable<string, FileItem?>? file_items; // All file-related items in our flowbox
 	CompareFunc<FileItem>? file_cmp;
 
-	GLib.Settings? desktop_settings = null;
-
 	public DesktopView(Gtk.Application app) {
 		Object(
 			application: app,
@@ -107,7 +105,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		);
 
 		GtkLayerShell.init_for_window(this);
-		GtkLayerShell.set_layer(this, GtkLayerShell.Layer.BACKGROUND);
+		GtkLayerShell.set_layer(this, GtkLayerShell.Layer.BOTTOM);
 		GtkLayerShell.set_anchor(
 			this,
 			GtkLayerShell.Edge.TOP | GtkLayerShell.Edge.LEFT,
@@ -227,21 +225,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 			show();
 			get_display_geo();
 		}
-
-		desktop_settings = new GLib.Settings("org.gnome.desktop.background");
-		desktop_settings.changed.connect((key) => {
-			if (key == "picture-uri") {
-				/* the background picture has changed.  We need to refresh
-				   the icons - we do this by hiding everything, allow the
-				   wallpaper to show and then redisplaying.
-				*/
-				hide();
-				GLib.Timeout.add(200, () => {
-					on_show_changed();
-					return false;
-				});
-			}
-		});
 
 		Bus.watch_name(BusType.SESSION, RAVEN_DBUS_NAME, BusNameWatcherFlags.NONE, has_raven, on_raven_lost);
 	}
