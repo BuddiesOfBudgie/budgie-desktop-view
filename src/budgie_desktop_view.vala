@@ -757,7 +757,9 @@ public class DesktopView : Gtk.ApplicationWindow {
 				Cancellable file_cancellable = new Cancellable(); // Create a new cancellable so we can cancel the file
 				shared_props.files_currently_copying.set(proposed_file_name, file_cancellable); // Add the originating file
 
-				this_file.copy_async.begin(target_file, FileCopyFlags.NOFOLLOW_SYMLINKS, 0, file_cancellable, null, (obj, res) => {
+				// Follow symlinks so exported desktop files, like flatpak's relative
+				// links into /var/lib/flatpak, copy as the file they point at
+				this_file.copy_async.begin(target_file, FileCopyFlags.NONE, 0, file_cancellable, null, (obj, res) => {
 					shared_props.files_currently_copying.remove(proposed_file_name); // Remove the file we were copying from our list
 					update_item_saturation(proposed_file_name); // Update our item saturation
 
