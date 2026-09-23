@@ -19,6 +19,9 @@ using GLib;
 using Gtk;
 
 public class FileItem : DesktopItem {
+	// INFO_ATTRIBUTES is what every FileInfo handed to a FileItem should be queried with; time::modified is for Sort By
+	public const string INFO_ATTRIBUTES = "standard::*,time::modified";
+
 	public File file;
 	public FileInfo info;
 	public DesktopAppInfo? app_info = null;
@@ -31,6 +34,7 @@ public class FileItem : DesktopItem {
 	private Icon? _override_icon = null;
 	private string? _override_icon_name = "";
 	private bool use_override_icon = false;
+	private Cancellable? thumbnail_cancellable = null; // The thumbnail load in progress, if any
 
 	public FileItem(UnifiedProps p, File f, FileInfo finfo, Icon? override_icon) {
 		props = p;
@@ -38,7 +42,7 @@ public class FileItem : DesktopItem {
 
 		if (finfo == null) { // If no file_info was provided
 			try {
-				finfo = file.query_info("standard::*", 0); // Get the info for the old file
+				finfo = file.query_info(INFO_ATTRIBUTES, 0); // Get the info for the old file
 			} catch (Error e) { // Failed to get the info
 				warning("Failed to get file info: %s", e.message);
 			}
@@ -113,7 +117,6 @@ public class FileItem : DesktopItem {
 			warning("Failed to set icon for FileItem %s: %s", _name, e.message);
 		}
 
-		button_press_event.connect(on_button_press);
 		button_release_event.connect(on_button_release);
 	}
 
@@ -138,6 +141,80 @@ public class FileItem : DesktopItem {
 		}
 	}
 
+	// is_launcher is true for .desktop files, which open an application instead of the file itself
+	public bool is_launcher {
+		get { return app_info != null || keyfile != null; }
+	}
+
+	// Home and Trash always exist, so a fixed name is enough; files use their path
+	public override string layout_id {
+		owned get {
+			return is_special ? "special:" + _ftype : layout_id_for(file);
+		}
+	}
+
+	// layout_id_for gives the layout id a file on the Desktop has or will have, e.g. before a drop finishes copying.
+	// The path is used since multiple files can share a display name.
+	public static string layout_id_for(File f) {
+		return "file:" + f.get_path();
+	}
+
+	public override void reload_icon() throws Error {
+		update_icon(); // Also reloads app icons and image thumbnails, which set_icon_factors alone wouldn't
+	}
+
+	// create_special will create a FileItem for a special directory, "home" or "trash"
+	public static FileItem? create_special(UnifiedProps props, string item_type) {
+		string path = Environment.get_home_dir(); // Default to the home directory
+
+		if (item_type == "trash") {
+			path = Path.build_path(Path.DIR_SEPARATOR_S, path, ".local", "share", "Trash", "files"); // Build a path to the trash files
+		} else if (item_type != "home") { // Not home or trash
+			return null;
+		}
+
+		File special_file = File.new_for_path(path);
+
+		if (item_type == "trash") { // Might not exist, better be safe than sorry
+			if (!special_file.query_exists(null)) { // If the trash files directory doesn't exist
+				warning("Trash folder does not exist. Creating the necessary directories.");
+
+				try {
+					special_file.make_directory_with_parents(); // Attempt to make the directory
+				} catch (Error e) {
+					warning("Failed to create %s: %s", path, e.message);
+					return null;
+				}
+			}
+		}
+
+		var c = new Cancellable(); // Create a new cancellable stack
+		FileInfo? special_file_info = null;
+
+		try {
+			special_file_info = special_file.query_info("standard::*", FileQueryInfoFlags.NONE, c);
+		} catch (Error e) {
+			warning("Failed to get requested information on this directory: %s", e.message);
+			return null;
+		}
+
+		if (c.is_cancelled() || (special_file_info == null)) { // Cancelled or failed to get info
+			warning("Failed to get information on this directory.");
+			return null;
+		}
+
+		ThemedIcon special_icon = new ThemedIcon("user-"+item_type); // Get the user-home or user-trash icon for this
+		FileItem special_item = new FileItem(props, special_file, special_file_info, special_icon);
+		special_item.is_special = true; // Say that it is special.
+		special_item.file_type = item_type; // Override file_type
+
+		if (item_type == "trash") {
+			special_item.label_name = _("Trash");
+		}
+
+		return special_item;
+	}
+
 	// emit_launch will handle launching a file assuming it isn't in a copying state
 	public bool emit_launch() {
 		if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
@@ -158,40 +235,21 @@ public class FileItem : DesktopItem {
 		return themed_icon;
 	}
 
-	// on_button_release handles when we've released our mouse button
-	// This is only intended to be used for left single click and right click
+	public override void open() {
+		emit_launch();
+	}
+
+	// on_button_release handles right click; left click is handled by DesktopCanvas
 	public bool on_button_release(EventButton ev) {
-		bool shift_down = (ev.state & Gdk.ModifierType.SHIFT_MASK) != 0;
-
-		if (ev.type == EventType.BUTTON_RELEASE && ev.button == 1) {
-			if (props.is_single_click && !shift_down) return emit_launch();
-			var parent = get_parent();
-			// Sanity check that parent is a FlowBox
-			if (parent != null && parent is Gtk.FlowBox) {
-				Gtk.FlowBox flowbox = (Gtk.FlowBox) parent;
-				// Select the casted child
-				Gtk.FlowBoxChild child = (Gtk.FlowBoxChild) this;
-				if (child.is_selected()) {
-					flowbox.unselect_child(child);
-				} else {
-					flowbox.select_child(child);
-				}
-				return Gdk.EVENT_STOP; // Stop propagation to prevent flowbox from clearing selection
-			}
-			return Gdk.EVENT_PROPAGATE;
-		}
-
 		if (ev.button == 3) { // Right click
-			// Get the flowbox to check if multiple items are selected
-			var parent = get_parent();
-			if (parent != null && parent is Gtk.FlowBox) {
-				Gtk.FlowBox flowbox = (Gtk.FlowBox) parent;
-				List<weak FlowBoxChild> selected = flowbox.get_selected_children();
+			DesktopCanvas? canvas = get_parent() as DesktopCanvas;
+			if (canvas != null) {
+				if (!is_selected) canvas.select_only(this); // Right-clicking outside the selection acts on this item alone
 
 				List<FileItem> selected_items = new List<FileItem>();
-				foreach (weak FlowBoxChild child in selected) {
-					if (child is FileItem) {
-						selected_items.append((FileItem) child);
+				foreach (DesktopItem item in canvas.get_selected()) {
+					if (item is FileItem) {
+						selected_items.append((FileItem) item);
 					}
 				}
 
@@ -205,16 +263,6 @@ public class FileItem : DesktopItem {
 			props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
 
 			return Gdk.EVENT_STOP;
-		}
-
-		return Gdk.EVENT_PROPAGATE;
-	}
-
-	// on_button_press handles when we've pressed our mouse button
-	// This is only used for double left click
-	public bool on_button_press(EventButton ev) {
-		if (ev.button == 1 && (!props.is_single_click && props.is_desired_primary_click_type(ev))) { // Left double Click
-			return emit_launch();
 		}
 
 		return Gdk.EVENT_PROPAGATE;
@@ -373,25 +421,25 @@ public class FileItem : DesktopItem {
 		}
 	}
 
-	// load_image_for_file will asynchronously attempt to attempt to load any available pixbuf for this file and set it
+	// load_image_for_file shows a thumbnail in place of the icon when the file can have one, without blocking the desktop
 	private async void load_image_for_file() {
-		if (
-			(!_ftype.has_prefix("image/")) || // Not an image
-			(info.get_size() > props.max_thumbnail_size * 1000000) // Greater than our max thumbnail size
-		) {
-			return;
-		}
+		if (_type == "dir" || is_launcher) return; // Folders and launchers keep their icons
 
-		string file_path = file.get_path();
+		// A newer load, e.g. after an icon size change, replaces any that is still running
+		if (thumbnail_cancellable != null) thumbnail_cancellable.cancel();
+		var cancellable = new Cancellable();
+		thumbnail_cancellable = cancellable;
 
 		try {
-			Pixbuf? file_pixbuf = new Pixbuf.from_file_at_scale(file_path, props.icon_size, -1, true); // Load the file and scale it immediately. Set to 96 which is our max.
-			set_image_pixbuf(file_pixbuf); // Set the image pixbuf
-		} catch (Error e) {
-			warning("Failed to create a PixBuf for the %s: %s\n", file_path, e.message);
-		}
+			int64 max_decode_bytes = (int64) props.max_thumbnail_size * 1000000; // max-thumbnail-size is in MB
+			Pixbuf? thumb = yield Thumbnails.load(file, _ftype, info.get_size(), max_decode_bytes, props.icon_size, cancellable);
 
-		return;
+			if (thumb == null || cancellable.is_cancelled()) return; // No thumbnail possible, or superseded meanwhile
+			set_image_pixbuf(thumb);
+		} catch (Error e) {
+			if (e is IOError.CANCELLED) return;
+			warning("Failed to load a thumbnail for %s: %s", file.get_path(), e.message);
+		}
 	}
 
 	// move_to_strash will move the file to the trash

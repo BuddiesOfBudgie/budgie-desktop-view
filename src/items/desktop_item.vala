@@ -17,7 +17,7 @@ limitations under the License.
 using Gdk;
 using Gtk;
 
-public class DesktopItem : FlowBoxChild {
+public class DesktopItem : Gtk.EventBox {
 	protected unowned UnifiedProps props;
 	protected int _label_width;
 	protected bool _copying;
@@ -25,6 +25,9 @@ public class DesktopItem : FlowBoxChild {
 	protected string _name;
 	protected string _type;
 	protected bool _special_dir;
+	protected bool _selected;
+
+	public GridPos? grid_pos = null;
 
 	protected Image? image;
 	protected Label? label;
@@ -36,7 +39,7 @@ public class DesktopItem : FlowBoxChild {
 	public Icon? icon;
 
 	public DesktopItem() {
-		Object(); // Create our DesktopItem as a FlowBoxChild
+		Object();
 		get_style_context().add_class("desktop-item");
 		expand = true; // Expand when possible
 		margin = ITEM_MARGIN;
@@ -63,7 +66,6 @@ public class DesktopItem : FlowBoxChild {
 		event_box.add(main_layout);
 
 		add(event_box);
-		event_box.set_events(EventMask.BUTTON_PRESS_MASK & EventMask.ENTER_NOTIFY_MASK & EventMask.LEAVE_NOTIFY_MASK);
 		event_box.enter_notify_event.connect(on_enter);
 		event_box.leave_notify_event.connect(on_leave);
 	}
@@ -87,6 +89,22 @@ public class DesktopItem : FlowBoxChild {
 			}
 
 			queue_draw();
+		}
+	}
+
+	public bool is_selected {
+		public get {
+			return _selected;
+		}
+
+		public set {
+			_selected = value;
+
+			if (_selected) {
+				set_state_flags(StateFlags.SELECTED, false);
+			} else {
+				unset_state_flags(StateFlags.SELECTED);
+			}
 		}
 	}
 
@@ -131,7 +149,7 @@ public class DesktopItem : FlowBoxChild {
 	private bool on_enter(EventCrossing event) {
 		if (event.mode != Gdk.CrossingMode.NORMAL) return EVENT_STOP;
 
-		get_style_context().add_class("selected");
+		get_style_context().add_class("hover");
 
 		if (_copying) { // Currently copying
 			props.current_cursor = props.blocked_cursor;
@@ -144,11 +162,24 @@ public class DesktopItem : FlowBoxChild {
 	private bool on_leave(EventCrossing event) {
 		if (event.mode != Gdk.CrossingMode.NORMAL) return EVENT_STOP;
 
-		get_style_context().remove_class("selected");
+		get_style_context().remove_class("hover");
 
 		if (!props.is_launching) props.current_cursor = props.hand_cursor;
 
 		return EVENT_STOP;
+	}
+
+	// open is the primary action for a left click or Enter
+	public virtual void open() {}
+
+	// layout_id identifies this item in the saved layout. It has to stay the same across restarts.
+	public virtual string layout_id {
+		owned get { return ""; }
+	}
+
+	// reload_icon re-fetches the icon at the current size and theme
+	public virtual void reload_icon() throws Error {
+		set_icon_factors(); // Resizes the label for the icon size, then reloads the icon from the theme
 	}
 
 	// request_show will request showing specific elements

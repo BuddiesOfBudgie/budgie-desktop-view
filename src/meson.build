@@ -1,14 +1,20 @@
 # Provides Budgie Desktop View component
 
+subdir('canvas')
+subdir('items')
+subdir('layout')
+subdir('menus')
+subdir('sources')
+
 desktop_view_sources = [
 	res,
+	canvas_sources,
+	items_sources,
+	layout_sources,
+	menus_sources,
+	sources_sources,
 	'application.vala',
 	'budgie_desktop_view.vala',
-	'desktop_item.vala',
-	'desktop_menu.vala',
-	'file_item.vala',
-	'file_menu.vala',
-	'mount_item.vala',
 	'unified_props.vala'
 ]
 
@@ -18,6 +24,7 @@ desktop_view_deps = [
 	dep_gio,
 	dep_gtk,
 	dep_gtk_layer_shell,
+	dep_m,
 	dep_xfce4windowing
 ]
 

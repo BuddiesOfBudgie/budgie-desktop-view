@@ -67,34 +67,23 @@ public class MountItem : DesktopItem {
 			});
 		}
 
-		button_press_event.connect(on_button_press);
 		button_release_event.connect(on_button_release);
 	}
 
-	// on_button_release handles when we've released our mouse button
-	// This is only intended to be used for left single click.
+	// on_button_release swallows non-left clicks so they don't open the desktop menu; left click is handled by DesktopCanvas
 	public bool on_button_release(EventButton ev) {
-		if (ev.button != 1) { // Not left click
-			return Gdk.EVENT_STOP;
-		}
-
-		if (props.is_single_click && ev.type == EventType.BUTTON_RELEASE && props.is_desired_primary_click_type(ev)) { // Single left click
-			launch();
-			return Gdk.EVENT_STOP;
-		}
-
-		return Gdk.EVENT_PROPAGATE;
+		return (ev.button != 1) ? Gdk.EVENT_STOP : Gdk.EVENT_PROPAGATE;
 	}
 
-	// on_button_press handles when we've pressed our mouse button
-	// This is only used for double left click
-	private bool on_button_press(EventButton ev) {
-		if (!props.is_single_click && props.is_desired_primary_click_type(ev)) { // Left double Click
-			launch();
-			return Gdk.EVENT_STOP;
-		}
+	public override void open() {
+		launch();
+	}
 
-		return Gdk.EVENT_PROPAGATE;
+	// The UUID survives unplugging, so a mount returns to the same spot when it comes back
+	public override string layout_id {
+		owned get {
+			return "mount:" + uuid;
+		}
 	}
 
 	// launch will attempt to open the mount in the default handler for it
@@ -118,7 +107,7 @@ public class MountItem : DesktopItem {
 		} else { // Label already set
 			if (label_name != mount_name) { // Mount name changed
 				label_name = mount_name; // Update the label
-				mount_name_changed(this); // Inform that the mount name changed so our parent flowbox can resort
+				mount_name_changed(this); // Inform that the mount name changed so auto-arrange can resort
 			}
 		}
 

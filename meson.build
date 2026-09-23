@@ -35,6 +35,7 @@ dep_gtk = dependency('gtk+-3.0', version: gnome_stack)
 dep_vala = dependency('vapigen', version: '>= 0.48.0')
 dep_gtk_layer_shell = dependency('gtk-layer-shell-0', version: '>= 0.8.0')
 dep_xfce4windowing = dependency('libxfce4windowing-0', version: '>= 4.19.7')
+dep_m = meson.get_compiler('c').find_library('m', required: false)
 
 # Make gettext work
 add_global_arguments('-DGETTEXT_PACKAGE="budgie-desktop-view"', language: 'c')
@@ -73,6 +74,8 @@ subdir('po')
 subdir('src')
 
 subdir('data')
+
+subdir('tests')
 
 report = [
 	'    Build configuration:',

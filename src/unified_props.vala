@@ -53,7 +53,7 @@ public class UnifiedProps : Object {
 		files_currently_copying = new HashTable<string, Cancellable>(str_hash, str_equal); // Create our empty list
 		is_launching = false;
 		_is_single_click = true;
-		_max_thumbnail_size = 10;
+		_max_thumbnail_size = 25; // Matches the schema default; replaced as soon as the settings are set
 	}
 
 	public GLib.Settings desktop_settings {
@@ -106,15 +106,6 @@ public class UnifiedProps : Object {
 	// is_copying returns if this file is currently copying
 	public bool is_copying(string file_name) {
 		return files_currently_copying.contains(file_name);
-	}
-
-	// is_desired_primary_click_type will return if the provided event matches our desired primary click type
-	public bool is_desired_primary_click_type(EventButton ev) {
-		if (ev.button != 1) { // Not left click
-			return false;
-		}
-
-		return (_is_single_click) ? true : (ev.type == Gdk.EventType.DOUBLE_BUTTON_PRESS); // Return true if single click otherwise check if it was a double button press
 	}
 
 	// update_click_policy will update our single click value

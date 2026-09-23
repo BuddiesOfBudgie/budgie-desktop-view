@@ -28,17 +28,26 @@ limitations under the License.
   color: rgba(232, 232, 232, 0.7);
 }
 
-.desktop-item:not(.selected) .desktop-item-image {
+.desktop-item {
+  border-radius: 6px;
+}
+
+.desktop-item:selected {
+  background-color: alpha(@theme_selected_bg_color, 0.45);
+}
+
+.desktop-item:not(.hover):not(:selected) .desktop-item-image {
   opacity: 0.9;
 }
 
-.desktop-item:not(.selected) .desktop-item-label {
+.desktop-item:not(.hover):not(:selected) .desktop-item-label {
   color: rgba(232, 232, 232, 0.9);
   font-weight: 600;
   text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
 }
 
-.desktop-item.selected .desktop-item-label {
+.desktop-item.hover .desktop-item-label,
+.desktop-item:selected .desktop-item-label {
   color: rgba(240, 240, 240, 1);
   font-weight: 600;
   text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 2px rgba(0, 0, 0, 1);
@@ -48,20 +57,8 @@ limitations under the License.
   background: white;
 }
 
-/* Drag and drop visual indicators */
-.drag-insert-before {
-	border-top: 3px solid @theme_selected_bg_color;
-	margin-top: 3px;
-}
-
-.drag-insert-after {
-	border-bottom: 3px solid @theme_selected_bg_color;
-	margin-bottom: 3px;
-}
-
-.drag-swap-target {
-	background-color: alpha(@theme_selected_bg_color, 0.3);
-	border: 2px solid @theme_selected_bg_color;
-	border-radius: 8px;
-	transition: all 200ms ease-in-out;
+/* Cells a dragged selection will snap to */
+.canvas.drop-target {
+  border: 2px dashed alpha(@theme_selected_bg_color, 0.8);
+  border-radius: 6px;
 }

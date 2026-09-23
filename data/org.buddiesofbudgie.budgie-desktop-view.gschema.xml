@@ -6,6 +6,12 @@
 		<value nick="double" value="2" />
 	</enum>
 
+	<enum id="org.buddiesofbudgie.budgie-desktop-view.ArrangeOrder">
+		<value nick="name" value="0" />
+		<value nick="type" value="1" />
+		<value nick="modified" value="2" />
+	</enum>
+
 	<enum id="org.buddiesofbudgie.budgie-desktop-view.DesktopItemSize">
 		<value nick="small" value="0" />
 		<value nick="normal" value="1" />
@@ -14,6 +20,24 @@
 	</enum>
 
 	<schema path="/org/buddiesofbudgie/budgie-desktop-view/" id="org.buddiesofbudgie.budgie-desktop-view">
+		<key type="b" name="auto-arrange">
+			<default>true</default>
+			<summary>Auto-arrange Desktop items</summary>
+			<description>Arrange Desktop items in columns, in the order set by arrange-order. When disabled, items keep the positions they were moved to.</description>
+		</key>
+
+		<key enum="org.buddiesofbudgie.budgie-desktop-view.ArrangeOrder" name="arrange-order">
+			<default>'name'</default>
+			<summary>Desktop item order</summary>
+			<description>The order auto-arrange places Desktop items in: by name, by type, or by date modified (newest first). Home, Trash and mounts always come first.</description>
+		</key>
+
+		<key type="b" name="snap-to-grid">
+			<default>true</default>
+			<summary>Snap Desktop items to the grid</summary>
+			<description>Snap moved and dropped Desktop items to the nearest grid cell. When disabled, items can be placed anywhere.</description>
+		</key>
+
 		<key enum="org.buddiesofbudgie.budgie-desktop-view.ClickPolicy" name="click-policy">
 			<default>'single'</default>
 			<summary>Use single or double click to open Desktop items.</summary>
@@ -27,9 +51,9 @@
 		</key>
 
 		<key type="i" name="max-thumbnail-size">
-			<default>10</default>
+			<default>25</default>
 			<summary>Maximum size of images in MBs to generate thumbnails for.</summary>
-			<description>Maximum size of images in MBs to generate thumbnails for.</description>
+			<description>Maximum size of images in MBs to generate thumbnails for. Larger images still get a thumbnail when another app has already cached one.</description>
 		</key>
 
 		<key type="b" name="show">
