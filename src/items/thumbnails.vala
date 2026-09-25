@@ -22,26 +22,36 @@ namespace Thumbnails {
 	private const int NORMAL_SIZE = 128; // The spec's "normal" cache flavor
 	private const int LARGE_SIZE = 256; // The spec's "large" cache flavor
 	private const uint THUMBNAILER_TIMEOUT_SECONDS = 30; // A thumbnailer stuck on a broken file shouldn't linger
+	private const int MAX_THUMBNAILERS = 2; // Every item starts its load at once on startup; this keeps it to a few processes
 
 	// Installed thumbnailers, loaded on first use: MIME type to Exec line
 	private HashTable<string, string>? thumbnailers = null;
 
+	// Files a thumbnailer failed on this session, as "uri mtime", so icon reloads don't rerun it; an edited file retries
+	private GenericSet<string>? failed = null;
+
+	// Thumbnailer slots: how many are running, and the loads waiting for one, oldest first
+	private int running_thumbnailers = 0;
+	private Queue<Waiter>? waiting = null;
+
+	// Waiter holds a suspended load's resume callback; Vala can't put delegates in a Queue directly
+	private class Waiter {
+		public SourceFunc resume;
+	}
+
 	// load returns a thumbnail that fits a size x size box, or null if the file can't have one. Anything it generates
 	// goes in the shared cache, so the next start and other apps reuse it instead of generating their own.
 	// max_decode_bytes caps images decoded in-process; cached thumbnails and external thumbnailers ignore it.
-	public async Pixbuf? load(File file, string content_type, int64 file_size, int64 max_decode_bytes, int size, Cancellable cancellable) throws Error {
-		FileInfo times = yield file.query_info_async(FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE, Priority.DEFAULT, cancellable);
-		string mtime = times.get_attribute_uint64(FileAttribute.TIME_MODIFIED).to_string(); // Seconds, as the spec stores it
+	// info must include time::modified, as FileItem.INFO_ATTRIBUTES does.
+	public async Pixbuf? load(File file, FileInfo info, int64 max_decode_bytes, int size, Cancellable cancellable) throws Error {
+		string content_type = info.get_content_type();
+		string mtime = info.get_attribute_uint64(FileAttribute.TIME_MODIFIED).to_string(); // Seconds, as the spec stores it
 		string uri = file.get_uri();
 
 		// The cache is keyed by the MD5 of the URI; icons up to 128px use the normal flavor, bigger ones the large one
 		bool large = size > NORMAL_SIZE;
-		string cache_path = Path.build_filename(
-			Environment.get_user_cache_dir(),
-			"thumbnails",
-			large ? "large" : "normal",
-			Checksum.compute_for_string(ChecksumType.MD5, uri) + ".png"
-		);
+		string cache_name = Checksum.compute_for_string(ChecksumType.MD5, uri) + ".png";
+		string cache_path = Path.build_filename(Environment.get_user_cache_dir(), "thumbnails", large ? "large" : "normal", cache_name);
 
 		int flavor_size = large ? LARGE_SIZE : NORMAL_SIZE;
 
@@ -52,18 +62,22 @@ namespace Thumbnails {
 		// An installed thumbnailer comes next: glycin-thumbnailer for images, ffmpegthumbnailer for videos, and so on.
 		// They run sandboxed or out of process, and are what other apps use, so the result matches theirs.
 		string? exec = find_thumbnailer(content_type);
-		if (exec != null) {
+		if (failed == null) failed = new GenericSet<string>(str_hash, str_equal);
+		string failure_key = uri + " " + mtime;
+
+		if (exec != null && !failed.contains(failure_key)) {
 			try {
 				yield run_thumbnailer(exec, file, uri, mtime, cache_path, flavor_size, cancellable);
 				return yield load_cached(cache_path, uri, mtime, size, cancellable);
 			} catch (Error e) {
 				if (e is IOError.CANCELLED) throw e;
 				warning("Thumbnailer failed for %s: %s", uri, e.message); // Images can still fall back to decoding below
+				failed.add(failure_key);
 			}
 		}
 
 		// Last resort for images: decode them ourselves, e.g. when no image thumbnailer is installed
-		if (!content_type.has_prefix("image/") || file_size > max_decode_bytes) return null;
+		if (!content_type.has_prefix("image/") || info.get_size() > max_decode_bytes) return null;
 
 		Pixbuf thumb = yield decode(file, flavor_size, cancellable);
 		cancellable.set_error_if_cancelled();
@@ -196,6 +210,37 @@ namespace Thumbnails {
 		}
 	}
 
+	// acquire_slot waits until fewer than MAX_THUMBNAILERS are running, then takes a slot. Pair with release_slot().
+	private async void acquire_slot(Cancellable cancellable) throws Error {
+		if (waiting == null) waiting = new Queue<Waiter>();
+
+		// Another load can take the freed slot before we're resumed from idle, so check again after each wake-up
+		while (running_thumbnailers >= MAX_THUMBNAILERS) {
+			var waiter = new Waiter();
+			waiter.resume = acquire_slot.callback;
+			waiting.push_tail(waiter);
+			yield;
+
+			if (cancellable.is_cancelled()) {
+				wake_next(); // We were woken for a free slot we won't use; hand it on so the queue keeps moving
+				throw new IOError.CANCELLED("Thumbnail load cancelled");
+			}
+		}
+
+		running_thumbnailers++;
+	}
+
+	// release_slot frees a thumbnailer slot and resumes the load that has waited longest
+	private void release_slot() {
+		running_thumbnailers--;
+		wake_next();
+	}
+
+	private void wake_next() {
+		Waiter? next = waiting.pop_head();
+		if (next != null) Idle.add((owned) next.resume);
+	}
+
 	// run_thumbnailer runs a thumbnailer and saves its output to the cache with the spec's validity fields
 	private async void run_thumbnailer(string exec, File file, string uri, string mtime, string cache_path, int thumb_size, Cancellable cancellable) throws Error {
 		DirUtils.create_with_parents(Path.get_dirname(cache_path), 0700); // The spec requires the cache to be private
@@ -216,22 +261,28 @@ namespace Thumbnails {
 				.replace("\x01", "%");
 		}
 
-		var proc = new Subprocess.newv(argv, SubprocessFlags.STDOUT_SILENCE | SubprocessFlags.STDERR_SILENCE);
-
-		// Kill the thumbnailer when the load is superseded or takes too long; wait_check_async alone would leave it running
-		bool timed_out = false;
-		uint timeout_id = Timeout.add_seconds(THUMBNAILER_TIMEOUT_SECONDS, () => {
-			timed_out = true;
-			proc.force_exit();
-			return false; // One-shot; the source is gone after this
-		});
-		ulong cancel_id = cancellable.connect(() => proc.force_exit());
+		yield acquire_slot(cancellable);
 
 		try {
-			yield proc.wait_check_async(null);
+			var proc = new Subprocess.newv(argv, SubprocessFlags.STDOUT_SILENCE | SubprocessFlags.STDERR_SILENCE);
+
+			// Kill the thumbnailer when the load is superseded or takes too long; wait_check_async alone would leave it running
+			bool timed_out = false;
+			uint timeout_id = Timeout.add_seconds(THUMBNAILER_TIMEOUT_SECONDS, () => {
+				timed_out = true;
+				proc.force_exit();
+				return false; // One-shot; the source is gone after this
+			});
+			ulong cancel_id = cancellable.connect(() => proc.force_exit());
+
+			try {
+				yield proc.wait_check_async(null);
+			} finally {
+				if (!timed_out) Source.remove(timeout_id); // Removing a source that already fired is an error
+				cancellable.disconnect(cancel_id);
+			}
 		} finally {
-			if (!timed_out) Source.remove(timeout_id); // Removing a source that already fired is an error
-			cancellable.disconnect(cancel_id);
+			release_slot();
 		}
 
 		cancellable.set_error_if_cancelled();

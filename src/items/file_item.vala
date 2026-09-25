@@ -217,7 +217,7 @@ public class FileItem : DesktopItem {
 
 	// emit_launch will handle launching a file assuming it isn't in a copying state
 	public bool emit_launch() {
-		if (props.files_currently_copying.contains(info.get_display_name())) { // Currently copying this file
+		if (props.is_copying(file.get_basename())) { // Currently copying this file; copies are tracked by basename
 			return Gdk.EVENT_STOP;
 		}
 
@@ -258,7 +258,7 @@ public class FileItem : DesktopItem {
 				props.file_menu.set_item(this, null); // Set just this item
 			}
 
-			props.file_menu.is_copying = props.files_currently_copying.contains(info.get_display_name()); // Set the FileMenu is_copying to if files_currently_copying contains this item
+			props.file_menu.is_copying = props.is_copying(file.get_basename()); // Set the FileMenu is_copying to if files_currently_copying contains this item
 			props.file_menu.show_open_in_terminal = ((app_info == null) && (keyfile == null));
 			props.file_menu.show_menu(ev); // Call show_menu which handles popup at pointer and screen setting
 
@@ -432,7 +432,7 @@ public class FileItem : DesktopItem {
 
 		try {
 			int64 max_decode_bytes = (int64) props.max_thumbnail_size * 1000000; // max-thumbnail-size is in MB
-			Pixbuf? thumb = yield Thumbnails.load(file, _ftype, info.get_size(), max_decode_bytes, props.icon_size, cancellable);
+			Pixbuf? thumb = yield Thumbnails.load(file, info, max_decode_bytes, props.icon_size, cancellable);
 
 			if (thumb == null || cancellable.is_cancelled()) return; // No thumbnail possible, or superseded meanwhile
 			set_image_pixbuf(thumb);
@@ -444,7 +444,7 @@ public class FileItem : DesktopItem {
 
 	// move_to_strash will move the file to the trash
 	public void move_to_trash() {
-		Cancellable? c = props.files_currently_copying.get(info.get_display_name()); // Get the cancellable
+		Cancellable? c = props.files_currently_copying.get(file.get_basename()); // Get the cancellable
 
 		if (c != null) { // If we got the cancellable, meaning this file is currently copying
 			c.cancel(); // Cancel the copy operation

@@ -92,7 +92,8 @@ public class MountItem : DesktopItem {
 			AppInfo appinfo = mount_file.query_default_handler(); // Get the default handler for the file
 			List<File> files = new List<File>();
 			files.append(mount_file);
-			appinfo.launch(files, null); // Launch the file
+			props.launch_context.set_timestamp(Gdk.CURRENT_TIME);
+			appinfo.launch(files, props.launch_context); // Same context as FileItem, for the loading cursor and window activation
 		} catch (Error e) {
 			warning("Failed to launch %s: %s", label_name, e.message);
 		}

@@ -19,7 +19,7 @@ public class DesktopFolder : Object {
 	private unowned UnifiedProps props;
 	private File directory;
 	private FileMonitor? monitor = null;
-	private HashTable<string, FileItem> items; // Keyed by display name
+	private HashTable<string, FileItem> items; // Keyed by FileItem.layout_id_for(file), i.e. the path
 
 	public string path { get; private set; }
 
@@ -45,11 +45,6 @@ public class DesktopFolder : Object {
 		} catch (Error e) {
 			warning("Failed to obtain a monitor for file changes to the Desktop folder. Will not be able to watch for changes: %s", e.message);
 		}
-	}
-
-	// contains returns whether an item with this display name exists
-	public bool contains(string name) {
-		return items.contains(name);
 	}
 
 	// load will get all the files in our Desktop folder and generate items for them. It doesn't emit changed().
@@ -90,9 +85,9 @@ public class DesktopFolder : Object {
 			return; // Don't do anything
 		}
 
-		string created_file_name = info.get_display_name(); // Get the name of the file
+		string key = FileItem.layout_id_for(f);
 
-		if (items.contains(created_file_name)) { // Already have this
+		if (items.contains(key)) { // Already have this
 			return;
 		}
 
@@ -106,37 +101,31 @@ public class DesktopFolder : Object {
 				return;
 			}
 
-			items.set(created_file_name, item);
+			items.set(key, item);
 			item_added(item);
 		}
 	}
 
-	// remove_file will delete any references to a file and its FileItem
+	// remove_file will delete any references to a file and its FileItem, then ask for a relayout
 	public void remove_file(File f) {
-		string deleted_file_name = f.get_basename(); // Get the basename of this
+		string key = FileItem.layout_id_for(f);
+		FileItem? file_item = items.get(key);
+		if (file_item == null) return; // Never had an item, e.g. a hidden file
 
-		try {
-			FileInfo delete_file_info = f.query_info("standard::*", 0);
-			deleted_file_name = delete_file_info.get_display_name();
-		} catch (Error e) {} // Usually already gone from disk, so the basename is the best we have
-
-		FileItem? file_item = items.get(deleted_file_name); // Get our potential FileItem
-
-		if (file_item != null) { // FileItem exists
-			items.remove(deleted_file_name); // Remove from items
-			item_removed(file_item);
-		}
+		items.remove(key);
+		item_removed(file_item);
+		changed(); // Every caller wants the gap closed, including a failed copy from DropImporter
 	}
 
 	// update_saturation will update the saturation of a FileItem based on if it is being copied
-	public void update_saturation(string item_name) {
-		FileItem? file_item = items.get(item_name); // Get the file item
+	public void update_saturation(File f) {
+		FileItem? file_item = items.get(FileItem.layout_id_for(f));
 
 		if (file_item == null) { // Item doesn't exist
 			return;
 		}
 
-		file_item.is_copying = props.is_copying(item_name);
+		file_item.is_copying = props.is_copying(f.get_basename()); // Copies are tracked by basename, see DropImporter
 	}
 
 	// on_file_changed will handle when a file changes in the Desktop directory
@@ -174,7 +163,6 @@ public class DesktopFolder : Object {
 
 		if ((do_delete) && (delete_file_ref != null)) { // Handle deletions first
 			remove_file(delete_file_ref); // Only pass the file reference since we won't be able to get file info
-			changed();
 		}
 
 		if ((do_create) && (create_file_ref != null)) { // Do creations after any potential deletions
@@ -185,16 +173,15 @@ public class DesktopFolder : Object {
 			Timeout.add(100, () => { // Gives just enough time usually for the file to finish syncing and start reporting a correct mimetype
 				try {
 					FileInfo created_file_info = create_file_ref.query_info(FileItem.INFO_ATTRIBUTES, 0);
-					string file_name = created_file_info.get_display_name();
 
-					if (items.contains(file_name) || // Already have this
+					if (items.contains(FileItem.layout_id_for(create_file_ref)) || // Already have this
 						created_file_info.get_is_hidden() // Is hidden
 					) {
 						return false;
 					}
 
 					add_item(create_file_ref, created_file_info); // Create our item
-					update_saturation(file_name); // A dropped file may still be copying
+					update_saturation(create_file_ref); // A dropped file may still be copying
 					changed();
 				} catch (Error e) { // Failed to get created file info
 					warning("Failed to create file item: %s", e.message);
@@ -213,10 +200,9 @@ public class DesktopFolder : Object {
 			Timeout.add(50, () => { // Delay for sync if necessary
 				try {
 					FileInfo existing_file_info = file.query_info(FileItem.INFO_ATTRIBUTES, 0); // Get the file's info
-					string file_name = existing_file_info.get_display_name(); // Get the name of the file
+					FileItem? file_item = items.get(FileItem.layout_id_for(file));
 
-					if (items.contains(file_name)) { // If we have this item
-						FileItem file_item = items.get(file_name); // Get the file item
+					if (file_item != null) { // If we have this item
 						file_item.info = existing_file_info; // Update the file info
 						file_item.update_icon(); // Also reloads the thumbnail, e.g. for an edited or just-copied image
 					}

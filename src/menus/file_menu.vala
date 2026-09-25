@@ -141,7 +141,7 @@ public class FileMenu : Gtk.Menu {
 		// Launch all selected items
 		debug("Launching %u selected item(s)", selected_items.length());
 		foreach (FileItem item in selected_items) {
-			if (!props.is_copying(item.info.get_display_name())) {
+			if (!props.is_copying(item.file.get_basename())) {
 				item.launch(false); // Launch normally
 			} else {
 				debug("Skipping %s - currently copying", item.label_name);
@@ -167,7 +167,7 @@ public class FileMenu : Gtk.Menu {
 		}
 
 		FileItem first_item = selected_items.nth_data(0);
-		if (!props.is_copying(first_item.info.get_display_name())) {
+		if (!props.is_copying(first_item.file.get_basename())) {
 			first_item.launch(true); // Launch with terminal
 		}
 

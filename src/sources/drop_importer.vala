@@ -56,13 +56,9 @@ public class DropImporter : Object {
 				continue; // Skip
 			}
 
-			string proposed_file_name = file_base;
-
-			if (folder.contains(file_base)) { // Already have a file called this
-				proposed_file_name = CopyName.next_free(file_base, (name) => {
-					return File.new_for_path(Path.build_filename(folder.path, name)).query_exists();
-				});
-			}
+			// Hidden files and ones still being created count as taken too
+			CopyName.TakenFunc taken = (name) => File.new_for_path(Path.build_filename(folder.path, name)).query_exists();
+			string proposed_file_name = taken(file_base) ? CopyName.next_free(file_base, taken) : file_base;
 
 			string target_path = Path.build_filename(folder.path, proposed_file_name);
 			File target_file = File.new_for_path(target_path); // "Create" our target file
@@ -91,7 +87,7 @@ public class DropImporter : Object {
 		// links into /var/lib/flatpak, copy as the file they point at
 		source.copy_async.begin(target, FileCopyFlags.NONE, 0, file_cancellable, null, (obj, res) => {
 			props.files_currently_copying.remove(target_name); // Remove the file we were copying from our list
-			folder.update_saturation(target_name); // Update our item saturation
+			folder.update_saturation(target); // Update our item saturation
 
 			try {
 				source.copy_async.end(res);

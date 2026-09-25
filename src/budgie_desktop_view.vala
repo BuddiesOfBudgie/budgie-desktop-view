@@ -17,13 +17,6 @@ limitations under the License.
 using Gdk;
 using Gtk;
 
-[DBus (name="org.budgie_desktop.Raven")]
-public interface Raven : GLib.Object {
-	public abstract async void Dismiss() throws Error;
-}
-
-public const string RAVEN_DBUS_NAME = "org.budgie_desktop.Raven";
-public const string RAVEN_DBUS_OBJECT_PATH = "/org/budgie_desktop/Raven";
 public const int MARGIN = 20; // pixel spacing for left/right
 
 public const string POSITIONS_DIR = "budgie-desktop-view";
@@ -58,7 +51,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 	Gdk.Display default_display;
 	libxfce4windowing.Monitor? primary_monitor;
 	UnifiedProps shared_props;
-	Raven? raven = null;
 
 	// The canvas's allocated size, which is what the grid has to fit. On Wayland the monitor workarea still includes
 	// panels, so this comes from the compositor's sizing of our layer surface instead.
@@ -198,6 +190,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		drop_importer = new DropImporter(shared_props, desktop_folder);
 
 		get_display_geo(); // Set our geo
+		setup_launch_context(); // Needs default_screen from get_display_geo
 
 		default_screen.monitors_changed.connect(on_resolution_change);
 
@@ -227,8 +220,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (visible_setting) {
 			show(); // The compositor then sizes us, and on_canvas_allocated does the first layout pass
 		}
-
-		Bus.watch_name(BusType.SESSION, RAVEN_DBUS_NAME, BusNameWatcherFlags.NONE, has_raven, on_raven_lost);
 	}
 
 	public void clear_selection() {
@@ -251,13 +242,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 	}
 
-	// dismiss_raven will request to dismiss Raven
-	public void dismiss_raven() {
-		if (raven != null) { // If we got Raven's DBus Proxy
-			raven.Dismiss.begin();
-		}
-	}
-
 	// shown_items returns the items the show settings allow. The arranger orders them and hides the rest.
 	private GenericArray<DesktopItem> shown_items() {
 		var shown = new GenericArray<DesktopItem>();
@@ -273,12 +257,15 @@ public class DesktopView : Gtk.ApplicationWindow {
 		return shown;
 	}
 
-	// get_display_geo refreshes the primary monitor, its scale, our cursors and the launch context.
+	// get_display_geo refreshes the primary monitor, which the desktop menu is placed on.
 	// Sizing isn't done here; the compositor sizes the layer surface and on_canvas_allocated follows it.
 	private void get_display_geo() {
 		default_screen = libxfce4windowing.Screen.get_default(); // Get our current default Screen
 		primary_monitor = default_screen.get_primary_monitor();
+	}
 
+	// setup_launch_context creates the cursors and the launch context items use. The display never changes, so once is enough.
+	private void setup_launch_context() {
 		default_display = default_screen.gdk_screen.get_display(); // Get the display related to it
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
@@ -301,8 +288,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 			shared_props.is_launching = false;
 			shared_props.current_cursor = shared_props.hand_cursor;
 		});
-
-		shared_props.s_factor = primary_monitor.get_scale(); // Get the current scaling factor
 	}
 
 	// get_icon_size will get the current icon size from our settings and apply it to our private uint
@@ -352,13 +337,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		});
 	}
 
-	// has_raven handles our request to begin getting Raven if we don't have it already
-	private void has_raven() {
-		if (raven == null) {
-			Bus.get_proxy.begin<Raven>(BusType.SESSION, RAVEN_DBUS_NAME, RAVEN_DBUS_OBJECT_PATH, 0, null, on_raven_get);
-		}
-	}
-
 	// on_button_release handles the releasing of a mouse button on empty desktop space
 	private bool on_button_release(EventButton event) {
 		bool ctrl_down = (event.state & Gdk.ModifierType.CONTROL_MASK) != 0;
@@ -367,18 +345,14 @@ public class DesktopView : Gtk.ApplicationWindow {
 		if (event.button == 1 && (ctrl_down == false && shift_down == false )) { // Left click only
 			desktop_menu.popdown(); // Hide the menu
 			clear_selection(); // Clear any selection
-			dismiss_raven(); // Dismiss raven
 
 			return Gdk.EVENT_PROPAGATE;
 		} else if (event.button == 1 && (ctrl_down == true || shift_down == true)) {
 			desktop_menu.popdown(); // Hide the menu
-			dismiss_raven(); // Dismiss raven
 
 			return Gdk.EVENT_PROPAGATE;
 		}
 		else if (event.button == 3) { // Right click
-			dismiss_raven(); // Dismiss raven
-
 			desktop_menu.place_on_monitor(primary_monitor.gdk_monitor); // Ensure menu is on primary monitor
 			desktop_menu.set_screen(default_screen.gdk_screen); // Ensure menu is on our screen
 			desktop_menu.popup_at_pointer(event); // Popup where our mouse is
@@ -402,8 +376,6 @@ public class DesktopView : Gtk.ApplicationWindow {
 		for (int i = 0; i < targets.length; i++) {
 			arranger.expect_drop(targets[i], drop_pos);
 		}
-
-		Gtk.drag_finish(c, true, true, time);
 	}
 
 	// on_canvas_scroll steps the icon size with Ctrl+scroll: up for bigger, down for smaller.
@@ -500,25 +472,10 @@ public class DesktopView : Gtk.ApplicationWindow {
 		return Gdk.EVENT_PROPAGATE;
 	}
 
-	// on_raven_get handles when our get_proxy request to get Raven completed
-	private void on_raven_get(Object? obj, AsyncResult? res) {
-		try {
-			raven = Bus.get_proxy.end(res);
-		} catch (Error e) {
-			warning("Failed to gain Raven: %s", e.message);
-		}
-	}
-
-	// on_raven_lost handles when we just the proxy for Raven
-	private void on_raven_lost() {
-		raven = null; // Reset back to null
-	}
-
 	// on_resolution_change will handle signal events for when the resolution of our primary monitor has changed
 	private void on_resolution_change() {
 		Timeout.add(250, () => {
 			get_display_geo(); // Update our display geo
-			refresh_icon_sizes(); // The scale may have changed, and icons are looked up at it; this relayouts too
 
 			return false;
 		});
