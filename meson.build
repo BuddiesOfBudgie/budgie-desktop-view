@@ -25,7 +25,7 @@ add_global_arguments(am_cflags, language: 'c')
 
 meson.add_install_script('scripts/mesonPostInstall.sh')
 
-glib_dep = '>= 2.64.0'
+glib_dep = '>= 2.72.0' # File.move_async
 gnome_stack = '>= 3.24.0'
 
 dep_glib = dependency('glib-2.0', version: glib_dep)

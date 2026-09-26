@@ -146,6 +146,10 @@ public class FileItem : DesktopItem {
 		get { return app_info != null || keyfile != null; }
 	}
 
+	public override bool accepts_drops {
+		get { return _type == "dir"; }
+	}
+
 	// Home and Trash always exist, so a fixed name is enough; files use their path
 	public override string layout_id {
 		owned get {
@@ -455,6 +459,23 @@ public class FileItem : DesktopItem {
 				file.trash_async.end(res);
 			} catch (Error e) {
 				warning("Failed to move %s to trash: %s", file.get_path(), e.message);
+			}
+		});
+	}
+
+	// move_into moves the file into a folder. A name the folder already has gets a " (Copy)" suffix, so nothing is overwritten.
+	public void move_into(File folder) {
+		if (props.is_copying(file.get_basename())) return; // Half-copied, so there is nothing complete to move yet
+
+		string name = file.get_basename();
+		CopyName.TakenFunc taken = (candidate) => folder.get_child(candidate).query_exists();
+		if (taken(name)) name = CopyName.next_free(name, taken);
+
+		file.move_async.begin(folder.get_child(name), FileCopyFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT, null, null, (obj, res) => {
+			try {
+				file.move_async.end(res);
+			} catch (Error e) {
+				warning("Failed to move %s into %s: %s", file.get_path(), folder.get_path(), e.message);
 			}
 		});
 	}

@@ -150,6 +150,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		canvas.size_allocate.connect(on_canvas_allocated);
 		canvas.scroll_event.connect(on_canvas_scroll);
 		canvas.items_trashed.connect(on_items_trashed);
+		canvas.items_dropped_into.connect(on_items_dropped_into);
 		shared_props.desktop_settings.bind("snap-to-grid", canvas, "snap-to-grid", SettingsBindFlags.GET);
 
 		arranger = new DesktopArranger(canvas, Path.build_filename(get_config_directory_path(), LAYOUT_FILE), shared_props.desktop_settings, shown_items);
@@ -272,7 +273,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
 		shared_props.loading_cursor = new Cursor.from_name(default_display, "progress");
-		shared_props.trash_cursor = new Cursor.from_name(default_display, "copy");
+		shared_props.drop_cursor = new Cursor.from_name(default_display, "copy");
 
 		shared_props.launch_context = default_display.get_app_launch_context(); // Get the app launch context for the default display
 		shared_props.launch_context.set_screen(default_screen.gdk_screen); // Set the screen
@@ -476,7 +477,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 	// trash_item_if_file moves an item's file to the trash, skipping items that can't be trashed
 	private void trash_item_if_file(DesktopItem item) {
-		if (!item.can_trash) return;
+		if (!item.is_desktop_file) return;
 		((FileItem) item).move_to_trash();
 	}
 
@@ -484,6 +485,18 @@ public class DesktopView : Gtk.ApplicationWindow {
 	private void on_items_trashed(GenericArray<DesktopItem> items) {
 		foreach (DesktopItem item in items) {
 			trash_item_if_file(item);
+		}
+
+		clear_selection();
+	}
+
+	// on_items_dropped_into handles a drag dropped on a folder. The Desktop folder then sees the files leave and
+	// relayouts, which re-sorts the desktop when auto-arrange is on.
+	private void on_items_dropped_into(GenericArray<DesktopItem> items, DesktopItem folder) {
+		File folder_file = ((FileItem) folder).file;
+
+		foreach (DesktopItem item in items) {
+			if (item.is_desktop_file) ((FileItem) item).move_into(folder_file);
 		}
 
 		clear_selection();

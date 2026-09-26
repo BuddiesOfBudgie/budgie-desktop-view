@@ -128,9 +128,15 @@ public class DesktopItem : Gtk.EventBox {
 		}
 	}
 
-	// can_trash is false for special items (e.g. Trash, Home) and mounts, which have no file to move to the trash
-	public bool can_trash {
+	// is_desktop_file is true for items backed by a file in the Desktop folder, which can be trashed or moved.
+	// Special items (e.g. Trash, Home) and mounts aren't.
+	public bool is_desktop_file {
 		get { return !_special_dir && !_mount; }
+	}
+
+	// accepts_drops is true for folders, which dragged items can be moved into
+	public virtual bool accepts_drops {
+		get { return false; }
 	}
 
 	public string item_type {

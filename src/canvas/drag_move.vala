@@ -20,7 +20,7 @@ public class DragMove {
 	public bool had_modifier { get; private set; default = false; } // Ctrl or Shift was held, so a click edits the selection instead of opening
 	public bool active { get; private set; default = false; } // Past the threshold and moving items
 	public GenericArray<DesktopItem> items { get; private set; } // Items being moved
-	public bool over_trash { get; set; default = false; } // Pointer is on the Trash item, so a drop trashes the items
+	public DesktopItem? drop_target { get; set; default = null; } // Trash or a folder under the pointer, which a drop moves the items into
 
 	// How far the pointer has moved since the press, in pixels and in cells
 	public double delta_x { get; private set; default = 0; }
@@ -60,6 +60,12 @@ public class DragMove {
 		}
 	}
 
+	// moves returns whether an item is one of the items being dragged
+	public bool moves(DesktopItem item) {
+		uint index;
+		return items.find(item, out index);
+	}
+
 	// update tracks the pointer, converting the pixel offset to cells for the drop
 	public void update(double root_x, double root_y, int cell_width, int cell_height) {
 		delta_x = root_x - press_root_x;
@@ -84,6 +90,7 @@ public class DragMove {
 	public void forget(DesktopItem item) {
 		items.remove(item);
 		if (press_item == item) press_item = null;
+		if (drop_target == item) drop_target = null;
 	}
 
 	// reset clears all press and drag state, ready for the next press
@@ -91,7 +98,7 @@ public class DragMove {
 		press_item = null;
 		had_modifier = false;
 		active = false;
-		over_trash = false;
+		drop_target = null;
 		items = new GenericArray<DesktopItem>();
 		delta_x = delta_y = delta_col = delta_row = 0;
 	}

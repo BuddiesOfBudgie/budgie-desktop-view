@@ -63,6 +63,13 @@ limitations under the License.
   border-radius: 6px;
 }
 
+/* Folder a dragged selection would be moved into on drop */
+.canvas.folder-target {
+  background-color: alpha(@theme_selected_bg_color, 0.25);
+  border: 2px solid alpha(@theme_selected_bg_color, 0.9);
+  border-radius: 6px;
+}
+
 /* Trash cell while a dragged selection would be trashed on drop */
 .canvas.trash-target {
   background-color: alpha(@error_color, 0.25);
