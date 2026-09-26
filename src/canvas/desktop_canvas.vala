@@ -28,9 +28,13 @@ public class DesktopCanvas : Gtk.Fixed {
 	public int cell_width { get; private set; default = 1; }
 	public int cell_height { get; private set; default = 1; }
 	public bool snap_to_grid { get; set; default = true; } // Bound to the snap-to-grid setting by the view
+	public DesktopItem? trash_item { get; set; default = null; } // Dropping dragged items on it trashes them
 
 	// items_moved reports a finished drag; the view resolves collisions and saves the result
 	public signal void items_moved(GenericArray<DesktopItem> items, double delta_col, double delta_row);
+
+	// items_trashed reports a drag dropped on the Trash item; the view trashes the items that can be
+	public signal void items_trashed(GenericArray<DesktopItem> items);
 
 	public DesktopCanvas(UnifiedProps p) {
 		Object();
@@ -54,7 +58,19 @@ public class DesktopCanvas : Gtk.Fixed {
 	public void place(DesktopItem item, GridPos pos) {
 		item.grid_pos = pos;
 		item.set_size_request(cell_width - ITEM_MARGIN * 2, cell_height - ITEM_MARGIN * 2); // The item's own margin fills the rest of the cell
-		move(item, col_to_x(pos.col), row_to_y(pos.row));
+
+		int x, y;
+		item_origin(item, pos, out x, out y);
+		move(item, x, y);
+	}
+
+	// item_origin returns where to put an item so it's centered on the cell at pos.
+	// Its label's minimum width can make an item wider than the size request, so the offset comes from its real size.
+	private void item_origin(DesktopItem item, GridPos pos, out int x, out int y) {
+		Requisition size;
+		item.get_preferred_size(null, out size); // Includes the item's margin
+		x = col_to_x(pos.col) + (cell_width - size.width) / 2;
+		y = row_to_y(pos.row) + (cell_height - size.height) / 2;
 	}
 
 	// col_to_x converts a column to a pixel offset; MARGIN keeps the first column off the screen edge
@@ -221,10 +237,11 @@ public class DesktopCanvas : Gtk.Fixed {
 	// cancel_interaction aborts an active drag or rubber band. Returns true if there was one.
 	public bool cancel_interaction() {
 		if (drag.active) {
-			for (int i = 0; i < drag.items.length; i++) {
-				place(drag.items[i], drag.items[i].grid_pos); // grid_pos still holds the pre-drag position
+			foreach (DesktopItem item in drag.items) {
+				place(item, item.grid_pos); // grid_pos still holds the pre-drag position
 			}
 
+			set_over_trash(false);
 			drag.reset();
 			queue_draw();
 			return true;
@@ -237,6 +254,45 @@ public class DesktopCanvas : Gtk.Fixed {
 		}
 
 		return false;
+	}
+
+	// pointer_over_trash returns whether a drop at these root coordinates lands on the Trash item.
+	// It's a geometric test because the pointer is over the dragged item's widget, and the grab keeps Trash from seeing it.
+	private bool pointer_over_trash(double root_x, double root_y) {
+		DesktopItem? trash = trash_item;
+		if (trash == null || !trash.get_visible() || trash.grid_pos == null) return false;
+
+		foreach (DesktopItem item in drag.items) {
+			if (item == trash) return false; // Trash moves with the pointer, so it can't be dropped on
+		}
+
+		int origin_x, origin_y;
+		get_window().get_origin(out origin_x, out origin_y);
+		double x = root_x - origin_x;
+		double y = root_y - origin_y;
+
+		Gtk.Allocation alloc;
+		trash.get_allocation(out alloc); // Relative to the canvas window
+		return x >= alloc.x && x < alloc.x + alloc.width && y >= alloc.y && y < alloc.y + alloc.height;
+	}
+
+	// set_over_trash tracks whether a drop would trash the dragged items. Over Trash, the cursor shows whether any of them can be.
+	private void set_over_trash(bool over) {
+		if (drag.over_trash == over) return;
+
+		drag.over_trash = over;
+
+		if (!over) {
+			props.current_cursor = props.hand_cursor;
+			return;
+		}
+
+		bool any_trashable = false;
+		foreach (DesktopItem item in drag.items) {
+			if (item.can_trash) any_trashable = true;
+		}
+
+		props.current_cursor = any_trashable ? props.trash_cursor : props.blocked_cursor;
 	}
 
 	// item_for_event returns the item an event happened on, or null for empty canvas space
@@ -318,14 +374,21 @@ public class DesktopCanvas : Gtk.Fixed {
 			// A Ctrl-click can deselect the pressed item; dragging it should still move it
 			if (!selection.contains(drag.press_item)) selection.select(drag.press_item);
 			drag.begin(get_selected());
+
+			// Items added earlier, like Home, stack below Trash, which would put Trash's window under the pointer instead
+			foreach (DesktopItem item in drag.items) {
+				item.get_window().raise();
+			}
 		}
 
 		drag.update(ev.x_root, ev.y_root, cell_width, cell_height);
+		set_over_trash(pointer_over_trash(ev.x_root, ev.y_root));
 
 		// Move the widgets only; grid_pos keeps the pre-drag position until the view saves the drop
-		for (int i = 0; i < drag.items.length; i++) {
-			DesktopItem item = drag.items[i];
-			move(item, col_to_x(item.grid_pos.col) + (int) drag.delta_x, row_to_y(item.grid_pos.row) + (int) drag.delta_y);
+		foreach (DesktopItem item in drag.items) {
+			int x, y;
+			item_origin(item, item.grid_pos, out x, out y);
+			move(item, x + (int) drag.delta_x, y + (int) drag.delta_y);
 		}
 
 		queue_draw(); // Redraw the snap targets
@@ -346,6 +409,22 @@ public class DesktopCanvas : Gtk.Fixed {
 
 		DesktopItem? item = drag.press_item;
 		if (item == null) return Gdk.EVENT_PROPAGATE;
+
+		if (drag.active && pointer_over_trash(ev.x_root, ev.y_root)) {
+			var trashed = drag.items;
+
+			// Items that can't be trashed stay where they were; trashed files leave once the Desktop folder sees them go
+			foreach (DesktopItem trashed_item in trashed) {
+				place(trashed_item, trashed_item.grid_pos);
+			}
+
+			set_over_trash(false);
+			drag.reset();
+			queue_draw(); // Clears the trash highlight
+
+			items_trashed(trashed);
+			return Gdk.EVENT_STOP;
+		}
 
 		if (drag.active) {
 			// Reset before emitting so the relayout the handler triggers doesn't draw the old snap outlines
@@ -377,14 +456,28 @@ public class DesktopCanvas : Gtk.Fixed {
 
 		StyleContext ctx = get_style_context();
 
-		// Outline where each dragged item will land; with snapping off it lands exactly where it is drawn
-		if (drag.active && snap_to_grid) {
+		// Highlight Trash in place of the snap outlines, since a drop there trashes the items instead of moving them
+		if (drag.active && drag.over_trash) {
+			Gtk.Allocation alloc;
+			trash_item.get_allocation(out alloc);
+
+			ctx.save();
+			ctx.add_class("trash-target");
+			ctx.render_background(cr, alloc.x, alloc.y, alloc.width, alloc.height);
+			ctx.render_frame(cr, alloc.x, alloc.y, alloc.width, alloc.height);
+			ctx.restore();
+		} else if (drag.active && snap_to_grid) { // Outline where each dragged item will land; with snapping off it lands exactly where it is drawn
 			ctx.save();
 			ctx.add_class("drop-target");
 
-			GenericArray<GridPos> targets = drag.snap_targets();
+			GenericArray<GridPos> targets = drag.snap_targets(); // Same order as drag.items
 			for (int i = 0; i < targets.length; i++) {
-				ctx.render_frame(cr, col_to_x(targets[i].col) + ITEM_MARGIN, row_to_y(targets[i].row) + ITEM_MARGIN, cell_width - ITEM_MARGIN * 2, cell_height - ITEM_MARGIN * 2);
+				Gtk.Allocation alloc;
+				drag.items[i].get_allocation(out alloc);
+
+				int x, y;
+				item_origin(drag.items[i], targets[i], out x, out y);
+				ctx.render_frame(cr, x + ITEM_MARGIN, y + ITEM_MARGIN, alloc.width, alloc.height);
 			}
 
 			ctx.restore();

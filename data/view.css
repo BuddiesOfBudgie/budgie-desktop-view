@@ -62,3 +62,10 @@ limitations under the License.
   border: 2px dashed alpha(@theme_selected_bg_color, 0.8);
   border-radius: 6px;
 }
+
+/* Trash cell while a dragged selection would be trashed on drop */
+.canvas.trash-target {
+  background-color: alpha(@error_color, 0.25);
+  border: 2px solid alpha(@error_color, 0.9);
+  border-radius: 6px;
+}

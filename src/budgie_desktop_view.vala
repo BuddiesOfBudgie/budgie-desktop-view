@@ -149,6 +149,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		canvas.can_focus = false; // Keys go to the window, which handles them in on_key_pressed
 		canvas.size_allocate.connect(on_canvas_allocated);
 		canvas.scroll_event.connect(on_canvas_scroll);
+		canvas.items_trashed.connect(on_items_trashed);
 		shared_props.desktop_settings.bind("snap-to-grid", canvas, "snap-to-grid", SettingsBindFlags.GET);
 
 		arranger = new DesktopArranger(canvas, Path.build_filename(get_config_directory_path(), LAYOUT_FILE), shared_props.desktop_settings, shown_items);
@@ -239,6 +240,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 
 		if (trash_item != null) { // Successfully created the trash directory item
 			canvas.put(trash_item, 0, 0);
+			canvas.trash_item = trash_item;
 		}
 	}
 
@@ -270,6 +272,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 		shared_props.blocked_cursor = new Cursor.from_name(default_display, "not-allowed");
 		shared_props.hand_cursor = new Cursor.for_display(default_display, CursorType.ARROW);
 		shared_props.loading_cursor = new Cursor.from_name(default_display, "progress");
+		shared_props.trash_cursor = new Cursor.from_name(default_display, "copy");
 
 		shared_props.launch_context = default_display.get_app_launch_context(); // Get the app launch context for the default display
 		shared_props.launch_context.set_screen(default_screen.gdk_screen); // Set the screen
@@ -452,8 +455,7 @@ public class DesktopView : Gtk.ApplicationWindow {
 				if (selected.length() == 0) break;
 
 				foreach (DesktopItem item in selected) {
-					if (item.is_special || item.is_mount) continue; // Don't move special items (e.g. Trash, Home, etc) or mounts to the trash
-					((FileItem) item).move_to_trash();
+					trash_item_if_file(item);
 				}
 
 				clear_selection();
@@ -470,6 +472,21 @@ public class DesktopView : Gtk.ApplicationWindow {
 		}
 
 		return Gdk.EVENT_PROPAGATE;
+	}
+
+	// trash_item_if_file moves an item's file to the trash, skipping items that can't be trashed
+	private void trash_item_if_file(DesktopItem item) {
+		if (!item.can_trash) return;
+		((FileItem) item).move_to_trash();
+	}
+
+	// on_items_trashed handles a drag dropped on the Trash item
+	private void on_items_trashed(GenericArray<DesktopItem> items) {
+		foreach (DesktopItem item in items) {
+			trash_item_if_file(item);
+		}
+
+		clear_selection();
 	}
 
 	// on_resolution_change will handle signal events for when the resolution of our primary monitor has changed

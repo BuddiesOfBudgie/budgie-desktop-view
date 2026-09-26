@@ -20,6 +20,7 @@ public class DragMove {
 	public bool had_modifier { get; private set; default = false; } // Ctrl or Shift was held, so a click edits the selection instead of opening
 	public bool active { get; private set; default = false; } // Past the threshold and moving items
 	public GenericArray<DesktopItem> items { get; private set; } // Items being moved
+	public bool over_trash { get; set; default = false; } // Pointer is on the Trash item, so a drop trashes the items
 
 	// How far the pointer has moved since the press, in pixels and in cells
 	public double delta_x { get; private set; default = 0; }
@@ -90,6 +91,7 @@ public class DragMove {
 		press_item = null;
 		had_modifier = false;
 		active = false;
+		over_trash = false;
 		items = new GenericArray<DesktopItem>();
 		delta_x = delta_y = delta_col = delta_row = 0;
 	}

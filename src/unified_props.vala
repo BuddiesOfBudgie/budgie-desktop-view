@@ -37,6 +37,7 @@ public class UnifiedProps : Object {
 	public Gdk.Cursor? blocked_cursor;
 	public Gdk.Cursor? hand_cursor;
 	public Gdk.Cursor? loading_cursor;
+	public Gdk.Cursor? trash_cursor; // Shown while a drop would add the dragged items to the trash
 
 	public Gdk.AppLaunchContext? launch_context;
 	public FileMenu? file_menu;

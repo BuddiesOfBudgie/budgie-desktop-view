@@ -124,8 +124,8 @@ public class DesktopArranger : Object {
 				continue;
 			}
 
+			item.request_show(); // Before placing, since hidden children don't count toward the size place() centers by
 			canvas.place(item, pos);
-			item.request_show();
 		}
 	}
 

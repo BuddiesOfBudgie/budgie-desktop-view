@@ -128,6 +128,11 @@ public class DesktopItem : Gtk.EventBox {
 		}
 	}
 
+	// can_trash is false for special items (e.g. Trash, Home) and mounts, which have no file to move to the trash
+	public bool can_trash {
+		get { return !_special_dir && !_mount; }
+	}
+
 	public string item_type {
 		public get {
 			return _type;
@@ -151,7 +156,7 @@ public class DesktopItem : Gtk.EventBox {
 
 		get_style_context().add_class("hover");
 
-		if (_copying) { // Currently copying
+		if (_copying && !button_held(event)) { // Currently copying
 			props.current_cursor = props.blocked_cursor;
 		}
 
@@ -164,9 +169,15 @@ public class DesktopItem : Gtk.EventBox {
 
 		get_style_context().remove_class("hover");
 
-		if (!props.is_launching) props.current_cursor = props.hand_cursor;
+		if (!props.is_launching && !button_held(event)) props.current_cursor = props.hand_cursor;
 
 		return EVENT_STOP;
+	}
+
+	// button_held is true while a drag is in progress, when the canvas owns the cursor. The dragged item can briefly
+	// fall behind the pointer, which sends it crossing events that would otherwise reset the cursor mid-drag.
+	private bool button_held(EventCrossing event) {
+		return (event.state & ModifierType.BUTTON1_MASK) != 0;
 	}
 
 	// open is the primary action for a left click or Enter
