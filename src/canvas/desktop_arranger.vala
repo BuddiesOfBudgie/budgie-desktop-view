@@ -49,6 +49,7 @@ public class DesktopArranger : Object {
 		settings.changed["snap-to-grid"].connect(relayout); // Turning snapping on aligns anything between cells
 
 		canvas.items_moved.connect(on_items_moved);
+		canvas.set_room_func(make_room_for);
 	}
 
 	// ordered_items returns the items that should be shown, in the current arrange order
@@ -213,9 +214,31 @@ public class DesktopArranger : Object {
 		return current;
 	}
 
-	// on_items_moved saves the result of a drag on the canvas
-	private void on_items_moved(GenericArray<DesktopItem> items, double delta_col, double delta_row) {
+	// make_room_for returns the new cell of every item that moves when the dragged items are inserted at the line above
+	// cell, or null when they don't fit. The canvas shows it while the pointer is near that line.
+	private HashTable<DesktopItem, GridPos>? make_room_for(GenericArray<DesktopItem> items, GridPos cell) {
+		var room = LayoutOps.make_room(current_positions(), layout_ids(items), cell, layout.cols, layout.rows);
+		if (room == null) return null;
+
+		var moving = new HashTable<DesktopItem, GridPos>(direct_hash, direct_equal);
+		foreach (DesktopItem item in canvas.get_items()) {
+			GridPos? pos = room.get(item.layout_id);
+			if (pos != null) moving.set(item, pos);
+		}
+
+		return moving;
+	}
+
+	// on_items_moved saves the result of a drag on the canvas. A drop that made room saves where it put every item.
+	private void on_items_moved(GenericArray<DesktopItem> items, double delta_col, double delta_row, HashTable<DesktopItem, GridPos> room) {
 		var current = current_positions(); // Pre-drag positions; the canvas only moved the widgets
+
+		if (room.size() > 0) {
+			var changed = new HashTable<string, GridPos>(str_hash, str_equal);
+			room.foreach((item, pos) => changed.set(item.layout_id, pos));
+			apply_arrangement(current, changed);
+			return;
+		}
 
 		// Applies the delta to each item and sends any that land on another item to the nearest free cell
 		var moved = LayoutOps.move(current, layout_ids(items), delta_col, delta_row, canvas.snap_to_grid, layout.cols, layout.rows);

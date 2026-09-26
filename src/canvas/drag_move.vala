@@ -22,6 +22,11 @@ public class DragMove {
 	public GenericArray<DesktopItem> items { get; private set; } // Items being moved
 	public DesktopItem? drop_target { get; set; default = null; } // Trash or a folder under the pointer, which a drop moves the items into
 
+	// While the pointer is near the line above the cell insert_at, the drop inserts the items there. room holds the new
+	// cell of every item that moves, the dragged ones included; the others are shown there until the drop saves them.
+	public GridPos? insert_at { get; set; default = null; }
+	public HashTable<DesktopItem, GridPos> room { get; set; }
+
 	// How far the pointer has moved since the press, in pixels and in cells
 	public double delta_x { get; private set; default = 0; }
 	public double delta_y { get; private set; default = 0; }
@@ -34,6 +39,7 @@ public class DragMove {
 
 	public DragMove() {
 		items = new GenericArray<DesktopItem>();
+		room = new HashTable<DesktopItem, GridPos>(direct_hash, direct_equal);
 	}
 
 	// press records the start of a possible drag
@@ -74,13 +80,15 @@ public class DragMove {
 		delta_row = delta_y / cell_height;
 	}
 
-	// snap_targets returns the cell each item would snap to if dropped now. Collisions are resolved on drop, so the result can differ.
+	// snap_targets returns the cell each item would snap to if dropped now. Collisions are resolved on drop, so the result
+	// can differ, except while making room, where the items land exactly there.
 	public GenericArray<GridPos> snap_targets() {
 		var targets = new GenericArray<GridPos>();
 
-		for (int i = 0; i < items.length; i++) {
-			GridPos from = items[i].grid_pos; // Still the pre-drag position; the canvas only moves the widget
-			targets.add(new GridPos(from.col + delta_col, from.row + delta_row).rounded());
+		foreach (DesktopItem item in items) {
+			GridPos? inserted = room.get(item);
+			GridPos from = item.grid_pos; // Still the pre-drag position; the canvas only moves the widget
+			targets.add(inserted ?? new GridPos(from.col + delta_col, from.row + delta_row).rounded());
 		}
 
 		return targets;
@@ -91,6 +99,7 @@ public class DragMove {
 		items.remove(item);
 		if (press_item == item) press_item = null;
 		if (drop_target == item) drop_target = null;
+		room.remove(item);
 	}
 
 	// reset clears all press and drag state, ready for the next press
@@ -99,7 +108,9 @@ public class DragMove {
 		had_modifier = false;
 		active = false;
 		drop_target = null;
+		insert_at = null;
 		items = new GenericArray<DesktopItem>();
+		room = new HashTable<DesktopItem, GridPos>(direct_hash, direct_equal);
 		delta_x = delta_y = delta_col = delta_row = 0;
 	}
 }

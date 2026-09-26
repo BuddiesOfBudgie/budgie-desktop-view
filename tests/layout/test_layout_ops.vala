@@ -98,6 +98,92 @@ void test_derive_resolves_collisions() {
 	assert_no_overlaps(result);
 }
 
+void test_make_room_pushes_run_down() {
+	var current = positions({ "a", "b", "c", "x" }, { 0, 0, 0, 1 }, { 0, 1, 2, 0 });
+	var result = LayoutOps.make_room(current, { "x" }, new GridPos(0, 1), 2, 5);
+
+	assert_true(result.size() == 3); // a is above the line, so it stays
+	assert_pos(result, "x", 0, 1);
+	assert_pos(result, "b", 0, 2);
+	assert_pos(result, "c", 0, 3);
+}
+
+void test_make_room_stops_at_gap() {
+	var current = positions({ "a", "b", "c", "x" }, { 0, 0, 0, 1 }, { 0, 1, 3, 0 });
+	var result = LayoutOps.make_room(current, { "x" }, new GridPos(0, 1), 2, 5);
+
+	assert_true(result.size() == 2);
+	assert_pos(result, "b", 0, 2); // Fills the gap at row 2, so c doesn't move
+}
+
+void test_make_room_closes_dragged_hole() {
+	// Dragging a down past b and c: they move up into a's cell, and a lands between c and d
+	var current = positions({ "a", "b", "c", "d" }, { 0, 0, 0, 0 }, { 0, 1, 2, 3 });
+	var result = LayoutOps.make_room(current, { "a" }, new GridPos(0, 3), 1, 5);
+
+	assert_true(result.size() == 3); // d is below the line and there's room above it, so it stays
+	assert_pos(result, "b", 0, 0);
+	assert_pos(result, "c", 0, 1);
+	assert_pos(result, "a", 0, 2);
+}
+
+void test_make_room_free_cell_above_line() {
+	var current = positions({ "a", "c", "x" }, { 0, 0, 1 }, { 0, 2, 0 });
+	var result = LayoutOps.make_room(current, { "x" }, new GridPos(0, 2), 2, 5);
+
+	assert_true(result.size() == 1); // Row 1 is free, so nothing moves
+	assert_pos(result, "x", 0, 1);
+}
+
+void test_make_room_gap_keeps_items_above() {
+	// The gap at row 1 stops the closing up, so a stays and b is pushed instead
+	var current = positions({ "x", "a", "b" }, { 0, 0, 0 }, { 0, 2, 3 });
+	var result = LayoutOps.make_room(current, { "x" }, new GridPos(0, 3), 1, 5);
+
+	assert_true(result.size() == 2);
+	assert_pos(result, "x", 0, 3);
+	assert_pos(result, "b", 0, 4);
+}
+
+void test_make_room_wraps_to_next_column() {
+	var current = positions({ "a", "b", "c", "d", "x" }, { 0, 0, 0, 1, 2 }, { 0, 1, 2, 0, 0 });
+	var result = LayoutOps.make_room(current, { "x" }, new GridPos(0, 1), 3, 3);
+
+	assert_pos(result, "x", 0, 1);
+	assert_pos(result, "b", 0, 2);
+	assert_pos(result, "c", 1, 0);
+	assert_pos(result, "d", 1, 1);
+}
+
+void test_make_room_bottom_line() {
+	var current = positions({ "a", "b" }, { 0, 0 }, { 0, 1 });
+	var result = LayoutOps.make_room(current, { "a" }, new GridPos(0, 2), 2, 2);
+
+	assert_pos(result, "b", 0, 0);
+	assert_pos(result, "a", 0, 1);
+}
+
+void test_make_room_full_grid() {
+	var current = positions({ "a", "b" }, { 0, 0 }, { 0, 1 });
+	assert_true(LayoutOps.make_room(current, { "x" }, new GridPos(0, 1), 1, 2) == null);
+}
+
+void test_make_room_several_items() {
+	var current = positions({ "a", "b", "c", "y", "x" }, { 0, 0, 0, 1, 1 }, { 0, 1, 2, 3, 2 });
+	var result = LayoutOps.make_room(current, { "y", "x" }, new GridPos(0, 0), 2, 4);
+
+	assert_pos(result, "x", 0, 0); // x came before y in fill order, so it stays first
+	assert_pos(result, "y", 0, 1);
+	assert_pos(result, "a", 0, 2);
+	assert_pos(result, "b", 0, 3);
+	assert_pos(result, "c", 1, 0);
+}
+
+void test_make_room_off_grid() {
+	var current = positions({ "a" }, { 0 }, { 0 });
+	assert_true(LayoutOps.make_room(current, { "x" }, new GridPos(2, 0), 2, 5) == null);
+}
+
 void add_layout_ops_tests() {
 	Test.add_func("/layout/ops/auto-arrange", test_auto_arrange_column_major);
 	Test.add_func("/layout/ops/place-collisions", test_place_resolves_collisions);
@@ -109,4 +195,14 @@ void add_layout_ops_tests() {
 	Test.add_func("/layout/ops/sort-in-place", test_sort_in_place_keeps_cells);
 	Test.add_func("/layout/ops/derive-anchors", test_derive_anchors_edges);
 	Test.add_func("/layout/ops/derive-collisions", test_derive_resolves_collisions);
+	Test.add_func("/layout/ops/make-room-run", test_make_room_pushes_run_down);
+	Test.add_func("/layout/ops/make-room-gap", test_make_room_stops_at_gap);
+	Test.add_func("/layout/ops/make-room-close-hole", test_make_room_closes_dragged_hole);
+	Test.add_func("/layout/ops/make-room-free-above", test_make_room_free_cell_above_line);
+	Test.add_func("/layout/ops/make-room-gap-above", test_make_room_gap_keeps_items_above);
+	Test.add_func("/layout/ops/make-room-wrap", test_make_room_wraps_to_next_column);
+	Test.add_func("/layout/ops/make-room-bottom", test_make_room_bottom_line);
+	Test.add_func("/layout/ops/make-room-full", test_make_room_full_grid);
+	Test.add_func("/layout/ops/make-room-several", test_make_room_several_items);
+	Test.add_func("/layout/ops/make-room-off-grid", test_make_room_off_grid);
 }

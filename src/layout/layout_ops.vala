@@ -98,6 +98,122 @@ namespace LayoutOps {
 		return result;
 	}
 
+	// make_room inserts the moving ids at the line just above insert_at, in column-major order, the order auto-arrange
+	// fills in. It returns the new cell of every item that moves, the moving ones included, or null when they don't fit.
+	// The moving items land on consecutive cells at the line, keeping their order:
+	// - Above the line, items only move up to close the holes the moving items left, and free cells right above the
+	//   line are used as they are. A gap stops this, so items above it stay put.
+	// - Below the line, items move down, onto the top of the next column past the bottom of one, until a free cell
+	//   absorbs the shift.
+	// A row of rows is the line under the last row, which is the top of the next column.
+	public HashTable<string, GridPos>? make_room(HashTable<string, GridPos> current, string[] moving_ids, GridPos insert_at, int cols, int rows) {
+		if (insert_at.col < 0 || insert_at.col >= cols || insert_at.row < 0 || insert_at.row > rows) return null;
+
+		int capacity = cols * rows;
+		int insert = (int) insert_at.col * rows + (int) insert_at.row;
+		var occupant = new string?[capacity]; // Item on each cell by column-major index
+		var vacated = new bool[capacity]; // Cells the moving items left
+
+		foreach (unowned string id in current.get_keys()) {
+			int index = cell_index(current.get(id), cols, rows);
+			if (index < 0) continue;
+
+			if (id in moving_ids) {
+				vacated[index] = true;
+			} else {
+				occupant[index] = id;
+			}
+		}
+
+		var result = new HashTable<string, GridPos>(str_hash, str_equal);
+		int count = moving_ids.length;
+
+		// Walk up from the line, counting the cells the moving items can land on above it
+		int start = insert;
+		int holes = 0;
+		bool past_items = false;
+		for (int index = insert - 1; index >= 0 && holes < count; index--) {
+			if (occupant[index] != null) {
+				past_items = true;
+			} else if (vacated[index] || !past_items) {
+				holes++;
+			} else {
+				break; // A gap above the items, which stay put
+			}
+
+			start = index;
+		}
+
+		// The items walked over close up toward the top, leaving the holes right above the line
+		int next = start;
+		for (int index = start; index < insert; index++) {
+			string? id = occupant[index];
+			if (id == null) continue;
+
+			if (index != next) result.set(id, cell_at(next, rows));
+			next++;
+		}
+
+		// The rest of the moving items take the cells from the line down, pushing what's there along
+		int end = insert + count - holes;
+		if (end > capacity) return null;
+
+		var waiting = new Queue<string>(); // Pushed items in order, each waiting for the next cell it can take
+
+		for (int index = insert; index < capacity; index++) {
+			if (waiting.is_empty() && index >= end) break; // Past the landing cells with nothing left to place
+
+			string? here = occupant[index];
+
+			if (index < end) {
+				if (here != null) waiting.push_tail(here);
+				continue;
+			}
+
+			if (waiting.is_empty()) continue; // Nothing is pushing, so an item here stays put
+
+			// Items keep their order, so whatever is here queues behind the ones pushing into it
+			if (here != null) waiting.push_tail(here);
+			result.set(waiting.pop_head(), cell_at(index, rows));
+		}
+
+		if (!waiting.is_empty()) return null; // Items left waiting would fall off the end of the grid
+
+		// Moving items keep the order they had; any without a cell go last
+		var moving = new GenericArray<string>();
+		foreach (string id in moving_ids) {
+			moving.add(id);
+		}
+
+		moving.sort_with_data((a, b) => fill_order(current, a, cols, rows) - fill_order(current, b, cols, rows));
+
+		for (int i = 0; i < moving.length; i++) {
+			result.set(moving[i], cell_at(insert - holes + i, rows));
+		}
+
+		return result;
+	}
+
+	// fill_order returns an item's column-major index, putting items that aren't on the grid after every cell
+	private int fill_order(HashTable<string, GridPos> current, string id, int cols, int rows) {
+		GridPos? pos = current.get(id);
+		int index = (pos != null) ? cell_index(pos, cols, rows) : -1;
+		return (index >= 0) ? index : cols * rows;
+	}
+
+	// cell_at returns the cell at a column-major index
+	private GridPos cell_at(int index, int rows) {
+		return new GridPos(index / rows, index % rows);
+	}
+
+	// cell_index returns a whole cell's column-major index, or -1 when it's off the grid
+	private int cell_index(GridPos pos, int cols, int rows) {
+		GridPos cell = pos.rounded();
+		if (cell.col < 0 || cell.col >= cols || cell.row < 0 || cell.row >= rows) return -1;
+
+		return (int) cell.col * rows + (int) cell.row;
+	}
+
 	// align_to_grid rounds each item to its nearest cell
 	public HashTable<string, GridPos> align_to_grid(HashTable<string, GridPos> current, string[] ids, int cols, int rows) {
 		var ordered = new GenericArray<string>();
