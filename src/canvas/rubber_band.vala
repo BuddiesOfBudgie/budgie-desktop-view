@@ -76,11 +76,10 @@ public class RubberBand {
 		};
 	}
 
-	// draw paints the band with the theme's rubberband style
+	// draw paints the band with the rubberband style, which view.css sets in the theme's selection color
 	public void draw(StyleContext ctx, Cairo.Context cr) {
 		Gdk.Rectangle band = rect();
 
-		// Themes style the rubberband class, so the band matches file managers
 		ctx.save();
 		ctx.add_class("rubberband");
 		ctx.render_background(cr, band.x, band.y, band.width, band.height);

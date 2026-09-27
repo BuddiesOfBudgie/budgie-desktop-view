@@ -576,6 +576,7 @@ public class DesktopCanvas : Gtk.Fixed {
 
 				int x, y;
 				item_origin(drag.items[i], targets[i], out x, out y);
+				ctx.render_background(cr, x + ITEM_MARGIN, y + ITEM_MARGIN, alloc.width, alloc.height);
 				ctx.render_frame(cr, x + ITEM_MARGIN, y + ITEM_MARGIN, alloc.width, alloc.height);
 			}
 
