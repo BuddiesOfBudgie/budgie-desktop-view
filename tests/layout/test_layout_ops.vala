@@ -56,6 +56,13 @@ void test_move_collision_goes_to_nearest_free() {
 	assert_true(Math.fabs(pos.col - 2) + Math.fabs(pos.row) == 1); // Adjacent to the taken cell
 }
 
+void test_move_free_collision_stays_fractional() {
+	// Dropped partly over a, b is pushed just clear of it and keeps its fractional row
+	var current = positions({ "a", "b" }, { 0, 3 }, { 0, 3 });
+	var result = LayoutOps.move(current, { "b" }, -2.5, -2.75, false, 5, 5);
+	assert_pos(result, "b", 1, 0.25);
+}
+
 void test_move_clamps_to_bounds() {
 	var current = positions({ "a" }, { 3 }, { 3 });
 	var result = LayoutOps.move(current, { "a" }, 10, -10, true, 5, 5);
@@ -190,6 +197,7 @@ void add_layout_ops_tests() {
 	Test.add_func("/layout/ops/move-group", test_move_keeps_group_shape);
 	Test.add_func("/layout/ops/move-free", test_move_free_placement);
 	Test.add_func("/layout/ops/move-collision", test_move_collision_goes_to_nearest_free);
+	Test.add_func("/layout/ops/move-free-collision", test_move_free_collision_stays_fractional);
 	Test.add_func("/layout/ops/move-clamp", test_move_clamps_to_bounds);
 	Test.add_func("/layout/ops/align-grid", test_align_to_grid_prefers_aligned_items);
 	Test.add_func("/layout/ops/sort-in-place", test_sort_in_place_keeps_cells);

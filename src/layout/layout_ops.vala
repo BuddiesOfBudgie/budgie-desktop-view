@@ -98,17 +98,12 @@ namespace LayoutOps {
 		return result;
 	}
 
-	// make_room inserts the moving ids at the line just above insert_at, in column-major order, the order auto-arrange
-	// fills in. It returns the new cell of every item that moves, the moving ones included, or null when they don't fit.
-	// The moving items land on consecutive cells at the line, keeping their order:
-	// - Above the line, items only move up to close the holes the moving items left, and free cells right above the
-	//   line are used as they are. A gap stops this, so items above it stay put.
-	// - Below the line, items move down, onto the top of the next column past the bottom of one, until a free cell
-	//   absorbs the shift.
-	// A row of rows is the line under the last row, which is the top of the next column.
+	// make_room inserts the moving ids at the line above insert_at, returning every item's new cell, or null when they don't fit
 	public HashTable<string, GridPos>? make_room(HashTable<string, GridPos> current, string[] moving_ids, GridPos insert_at, int cols, int rows) {
+		// The row can be rows, the line under the last row
 		if (insert_at.col < 0 || insert_at.col >= cols || insert_at.row < 0 || insert_at.row > rows) return null;
 
+		// Work in column-major order, the order auto-arrange fills in, so the bottom of a column runs on to the top of the next
 		int capacity = cols * rows;
 		int insert = (int) insert_at.col * rows + (int) insert_at.row;
 		var occupant = new string?[capacity]; // Item on each cell by column-major index
@@ -128,7 +123,8 @@ namespace LayoutOps {
 		var result = new HashTable<string, GridPos>(str_hash, str_equal);
 		int count = moving_ids.length;
 
-		// Walk up from the line, counting the cells the moving items can land on above it
+		// Walk up from the line, counting the cells the moving items can land on above it: holes they left in the run of
+		// items above the line, and free cells right above it
 		int start = insert;
 		int holes = 0;
 		bool past_items = false;
@@ -154,7 +150,8 @@ namespace LayoutOps {
 			next++;
 		}
 
-		// The rest of the moving items take the cells from the line down, pushing what's there along
+		// The rest of the moving items take the cells from the line down, pushing what's there along until a free cell
+		// absorbs the push
 		int end = insert + count - holes;
 		if (end > capacity) return null;
 
@@ -179,7 +176,7 @@ namespace LayoutOps {
 
 		if (!waiting.is_empty()) return null; // Items left waiting would fall off the end of the grid
 
-		// Moving items keep the order they had; any without a cell go last
+		// Moving items land on consecutive cells at the line, keeping the order they had; any without a cell go last
 		var moving = new GenericArray<string>();
 		foreach (string id in moving_ids) {
 			moving.add(id);

@@ -71,6 +71,34 @@ public class LayoutGrid {
 		return best; // null when every cell is taken
 	}
 
+	// nearest_free_spot returns the free position closest to p, which can be between cells, or null when there's none
+	public GridPos? nearest_free_spot(GridPos p) {
+		GridPos? best = null;
+		double best_dist = double.MAX;
+
+		// The closest spot is just clear of an item p overlaps, so try each side of every item, keeping p's position
+		// on the other axis. Grids hold a few hundred items at most, so this stays cheap.
+		for (int i = 0; i < occupied.length; i++) {
+			GridPos o = occupied[i];
+			GridPos[] candidates = {
+				new GridPos(o.col - 1, p.row), new GridPos(o.col + 1, p.row),
+				new GridPos(p.col, o.row - 1), new GridPos(p.col, o.row + 1)
+			};
+
+			foreach (GridPos candidate in candidates) {
+				if (candidate.col < 0 || candidate.col > cols - 1 || candidate.row < 0 || candidate.row > rows - 1) continue;
+
+				double dist = Math.pow(candidate.col - p.col, 2) + Math.pow(candidate.row - p.row, 2);
+				if (dist < best_dist && is_free(candidate)) {
+					best = candidate;
+					best_dist = dist;
+				}
+			}
+		}
+
+		return best;
+	}
+
 	// first_free returns the first free cell in column-major order, the order auto-arrange fills in
 	public GridPos? first_free() {
 		for (int c = 0; c < cols; c++) {
@@ -88,7 +116,11 @@ public class LayoutGrid {
 		GridPos target = clamp(p); // Off-grid positions come back onto the grid first
 
 		if (!is_free(target)) {
-			target = nearest_free(target); // Taken, so fall back to the closest whole cell
+			// A free-placed item stays free-placed, just clear of what it overlaps, unless it's boxed in
+			bool whole = target.col == Math.round(target.col) && target.row == Math.round(target.row);
+			GridPos? spot = whole ? null : nearest_free_spot(target);
+
+			target = spot ?? nearest_free(target); // Otherwise the closest whole cell
 		}
 
 		if (target != null) occupy(target);

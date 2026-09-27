@@ -463,10 +463,11 @@ public class FileItem : DesktopItem {
 		});
 	}
 
-	// move_into moves the file into a folder. A name the folder already has gets a " (Copy)" suffix, so nothing is overwritten.
+	// move_into moves the file into a folder
 	public void move_into(File folder) {
 		if (props.is_copying(file.get_basename())) return; // Half-copied, so there is nothing complete to move yet
 
+		// A name the folder already has gets a " (Copy)" suffix, so nothing is overwritten
 		string name = file.get_basename();
 		CopyName.TakenFunc taken = (candidate) => folder.get_child(candidate).query_exists();
 		if (taken(name)) name = CopyName.next_free(name, taken);

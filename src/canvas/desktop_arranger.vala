@@ -214,12 +214,12 @@ public class DesktopArranger : Object {
 		return current;
 	}
 
-	// make_room_for returns the new cell of every item that moves when the dragged items are inserted at the line above
-	// cell, or null when they don't fit. The canvas shows it while the pointer is near that line.
+	// make_room_for is the canvas's RoomFunc, for previewing a drop that makes room
 	private HashTable<DesktopItem, GridPos>? make_room_for(GenericArray<DesktopItem> items, GridPos cell) {
 		var room = LayoutOps.make_room(current_positions(), layout_ids(items), cell, layout.cols, layout.rows);
-		if (room == null) return null;
+		if (room == null) return null; // The dragged items don't fit
 
+		// The canvas works with widgets, so map the layout ids back to them
 		var moving = new HashTable<DesktopItem, GridPos>(direct_hash, direct_equal);
 		foreach (DesktopItem item in canvas.get_items()) {
 			GridPos? pos = room.get(item.layout_id);
@@ -229,10 +229,11 @@ public class DesktopArranger : Object {
 		return moving;
 	}
 
-	// on_items_moved saves the result of a drag on the canvas. A drop that made room saves where it put every item.
+	// on_items_moved saves the result of a drag on the canvas
 	private void on_items_moved(GenericArray<DesktopItem> items, double delta_col, double delta_row, HashTable<DesktopItem, GridPos> room) {
 		var current = current_positions(); // Pre-drag positions; the canvas only moved the widgets
 
+		// A drop that made room saves every item where the preview showed it
 		if (room.size() > 0) {
 			var changed = new HashTable<string, GridPos>(str_hash, str_equal);
 			room.foreach((item, pos) => changed.set(item.layout_id, pos));

@@ -30,13 +30,11 @@ public class DesktopCanvas : Gtk.Fixed {
 	public bool snap_to_grid { get; set; default = true; } // Bound to the snap-to-grid setting by the view
 	public DesktopItem? trash_item { get; set; default = null; } // Dropping dragged items on it trashes them instead of moving them
 
-	// RoomFunc returns the new cell of every item that moves when the dragged items are inserted at the line above
-	// cell, or null when they don't fit. The arranger provides it, since it knows the grid size.
+	// RoomFunc returns every item's new cell with the dragged items inserted at the line above cell, or null when they don't fit
 	public delegate HashTable<DesktopItem, GridPos>? RoomFunc(GenericArray<DesktopItem> items, GridPos cell);
-	private RoomFunc? room_func = null;
+	private RoomFunc? room_func = null; // Set by the arranger, which knows the grid size
 
-	// items_moved reports a finished drag; the view resolves collisions and saves the result. room is empty unless the
-	// drop made room, in which case it holds where every moving item goes.
+	// items_moved reports a finished drag, with room holding every item's new cell when the drop made room
 	public signal void items_moved(GenericArray<DesktopItem> items, double delta_col, double delta_row, HashTable<DesktopItem, GridPos> room);
 
 	// items_trashed reports a drag dropped on the Trash item; the view trashes the items that can be
@@ -81,9 +79,9 @@ public class DesktopCanvas : Gtk.Fixed {
 		move(item, x, y);
 	}
 
-	// item_origin returns where to put an item so it's centered on the cell at pos.
-	// Its label's minimum width can make an item wider than the size request, so the offset comes from its real size.
+	// item_origin returns where to put an item so it's centered on the cell at pos
 	private void item_origin(DesktopItem item, GridPos pos, out int x, out int y) {
+		// Its label's minimum width can make an item wider than the size request, so center it by its real size
 		Requisition size;
 		item.get_preferred_size(null, out size); // Includes the item's margin
 		x = col_to_x(pos.col) + (cell_width - size.width) / 2;
@@ -274,12 +272,12 @@ public class DesktopCanvas : Gtk.Fixed {
 		return false;
 	}
 
-	// drop_target_at returns the Trash or folder item a drop at these root coordinates lands on, if any.
-	// It's a geometric test because the pointer is over the dragged item's widget, and the grab keeps other items from seeing it.
+	// drop_target_at returns the Trash or folder item a drop at these root coordinates lands on, if any
 	private DesktopItem? drop_target_at(double root_x, double root_y) {
 		double x, y;
 		root_to_canvas(root_x, root_y, out x, out y);
 
+		// Test by position: the pointer is over the dragged item's widget, and the grab keeps other items from seeing it
 		foreach (DesktopItem item in get_items()) {
 			if (!item.accepts_drops || !item.get_visible() || item.grid_pos == null) continue;
 			if (drag.moves(item)) continue; // Moves with the pointer, so it can't be dropped on
@@ -300,8 +298,7 @@ public class DesktopCanvas : Gtk.Fixed {
 		y = root_y - origin_y;
 	}
 
-	// update_insertion makes room for the dragged items while the pointer is near the line between two cells, shifting
-	// what's in the way. Moving off the line puts those items back.
+	// update_insertion shifts the items around where the dragged items would be inserted
 	private void update_insertion(double root_x, double root_y) {
 		GridPos? cell = snap_to_grid ? insertion_cell(root_x, root_y) : null;
 		GridPos? previous = drag.insert_at;
@@ -318,56 +315,72 @@ public class DesktopCanvas : Gtk.Fixed {
 			if (room == null) drag.insert_at = null; // Nowhere to shift to, so the drop resolves collisions as usual
 		}
 
-		show_room(room);
+		show_room(room); // A null room puts every shifted item back
 	}
 
-	// insertion_cell returns the cell just below the line where a drop inserts the dragged items. Coming within a
-	// quarter cell of a line with an item on either side of it starts an insertion there. Null when there's none.
+	// insertion_cell returns the cell just below the line where a drop inserts the dragged items, if any
 	private GridPos? insertion_cell(double root_x, double root_y) {
-		double x, y;
-		root_to_canvas(root_x, root_y, out x, out y);
+		DesktopItem? pressed = drag.press_item;
+		if (pressed == null || pressed.grid_pos == null) return null;
+		if (over_drop_target_middle(root_x, root_y)) return null; // The folder or Trash takes the drop instead
 
-		double col = Math.floor((x - MARGIN) / cell_width);
-		double rows_down = y / cell_height;
-		double line = Math.round(rows_down); // The line between rows line - 1 and line
+		// Where the pressed item is drawn, in cells, so it doesn't matter where on the item it was grabbed
+		double col = Math.round(pressed.grid_pos.col + drag.delta_col);
+		double row = pressed.grid_pos.row + drag.delta_row;
 
-		if (Math.fabs(rows_down - line) <= 0.25) {
-			foreach (DesktopItem item in get_items()) {
-				if (!item.get_visible() || item.grid_pos == null || drag.moves(item)) continue;
-				if (item.grid_pos.col != col) continue;
-				if (item.grid_pos.row == line || item.grid_pos.row == line - 1) return new GridPos(col, line);
-			}
-		}
+		// It passes an item once it covers more than half of it, the way reordering a list works. Dragging down its own
+		// column, the item it covers most is one it's passing, so it goes below it; otherwise it goes above it.
+		bool passing_down = col == pressed.grid_pos.col && row > pressed.grid_pos.row;
+		double line = Math.round(row) + (passing_down ? 1 : 0); // The line between rows line - 1 and line
 
-		// Between lines, the last insertion holds until the pointer reaches another line or leaves the cells on either
-		// side of it, so shifted items don't jump back mid-cell. A folder or Trash under the pointer takes the drop instead.
-		GridPos? active = drag.insert_at;
-		if (active != null && active.col == col && Math.fabs(rows_down - active.row) < 1 && drop_target_at(root_x, root_y) == null) {
-			return active;
+		// Only make room among items; with nothing on either side of the line, the drop lands in free space as usual
+		foreach (DesktopItem item in get_items()) {
+			if (!item.get_visible() || item.grid_pos == null || drag.moves(item)) continue;
+			if (item.grid_pos.col != col) continue;
+			if (item.grid_pos.row == line || item.grid_pos.row == line - 1) return new GridPos(col, line);
 		}
 
 		return null;
 	}
 
-	// show_room moves the items a drop would shift to their new cells, and puts ones no longer shifted back on their
-	// own. Dragged items stay with the pointer; the snap outlines show where they land.
+	// over_drop_target_middle returns whether the pointer is over the middle half of a folder or Trash's own cell
+	private bool over_drop_target_middle(double root_x, double root_y) {
+		double x, y;
+		root_to_canvas(root_x, root_y, out x, out y);
+
+		// The top and bottom quarters are left for shifting items around it
+		double col = Math.floor((x - MARGIN) / cell_width);
+		double rows_down = y / cell_height;
+		double row = Math.floor(rows_down);
+		if (rows_down - row < 0.25 || rows_down - row > 0.75) return false;
+
+		// Its own cell, even while it's shown shifted, so shifting it out from under the pointer doesn't lose the drop
+		foreach (DesktopItem item in get_items()) {
+			if (!item.accepts_drops || !item.get_visible() || item.grid_pos == null || drag.moves(item)) continue;
+			if (item.grid_pos.col == col && item.grid_pos.row == row) return true;
+		}
+
+		return false;
+	}
+
+	// show_room shows the items a drop would shift on their new cells
 	private void show_room(HashTable<DesktopItem, GridPos>? room) {
+		// Items shifted before but not now go back to their own cells
 		drag.room.foreach((item, pos) => {
 			if (!drag.moves(item) && (room == null || !room.contains(item))) show_at(item, item.grid_pos);
 		});
 
 		if (room != null) {
 			room.foreach((item, pos) => {
-				if (!drag.moves(item)) show_at(item, pos);
+				if (!drag.moves(item)) show_at(item, pos); // Dragged items stay with the pointer
 			});
 		}
 
 		drag.room = room ?? new HashTable<DesktopItem, GridPos>(direct_hash, direct_equal);
-		queue_draw();
+		queue_draw(); // The snap outlines show where the dragged items land
 	}
 
-	// set_drop_target tracks where a drop would move the dragged items. Over a target, the cursor shows whether any of
-	// them can be moved there.
+	// set_drop_target tracks the Trash or folder a drop would move the dragged items into
 	private void set_drop_target(DesktopItem? target) {
 		if (drag.drop_target == target) return;
 
@@ -378,6 +391,7 @@ public class DesktopCanvas : Gtk.Fixed {
 			return;
 		}
 
+		// Over a target, the cursor shows whether any of the dragged items can be moved there
 		bool any_movable = false;
 		foreach (DesktopItem item in drag.items) {
 			if (item.is_desktop_file) any_movable = true;
@@ -474,7 +488,7 @@ public class DesktopCanvas : Gtk.Fixed {
 
 		drag.update(ev.x_root, ev.y_root, cell_width, cell_height);
 		update_insertion(ev.x_root, ev.y_root);
-		set_drop_target(drag.insert_at == null ? drop_target_at(ev.x_root, ev.y_root) : null); // Making room wins near a line
+		set_drop_target(drag.insert_at == null ? drop_target_at(ev.x_root, ev.y_root) : null); // Making room wins outside a folder's middle
 
 		// Move the widgets only; grid_pos keeps the pre-drag position until the view saves the drop
 		foreach (DesktopItem item in drag.items) {

@@ -490,11 +490,11 @@ public class DesktopView : Gtk.ApplicationWindow {
 		clear_selection();
 	}
 
-	// on_items_dropped_into handles a drag dropped on a folder. The Desktop folder then sees the files leave and
-	// relayouts, which re-sorts the desktop when auto-arrange is on.
+	// on_items_dropped_into handles a drag dropped on a folder
 	private void on_items_dropped_into(GenericArray<DesktopItem> items, DesktopItem folder) {
 		File folder_file = ((FileItem) folder).file;
 
+		// The Desktop folder sees the files leave and relayouts, which re-sorts the desktop when auto-arrange is on
 		foreach (DesktopItem item in items) {
 			if (item.is_desktop_file) ((FileItem) item).move_into(folder_file);
 		}

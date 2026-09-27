@@ -128,10 +128,9 @@ public class DesktopItem : Gtk.EventBox {
 		}
 	}
 
-	// is_desktop_file is true for items backed by a file in the Desktop folder, which can be trashed or moved.
-	// Special items (e.g. Trash, Home) and mounts aren't.
+	// is_desktop_file is true for items backed by a file in the Desktop folder, which can be trashed or moved
 	public bool is_desktop_file {
-		get { return !_special_dir && !_mount; }
+		get { return !_special_dir && !_mount; } // Special items (e.g. Trash, Home) and mounts aren't
 	}
 
 	// accepts_drops is true for folders, which dragged items can be moved into
@@ -175,13 +174,13 @@ public class DesktopItem : Gtk.EventBox {
 
 		get_style_context().remove_class("hover");
 
+		// The dragged item can briefly fall behind the pointer, which sends it crossing events mid-drag
 		if (!props.is_launching && !button_held(event)) props.current_cursor = props.hand_cursor;
 
 		return EVENT_STOP;
 	}
 
-	// button_held is true while a drag is in progress, when the canvas owns the cursor. The dragged item can briefly
-	// fall behind the pointer, which sends it crossing events that would otherwise reset the cursor mid-drag.
+	// button_held is true while a drag is in progress, when the canvas owns the cursor
 	private bool button_held(EventCrossing event) {
 		return (event.state & ModifierType.BUTTON1_MASK) != 0;
 	}
