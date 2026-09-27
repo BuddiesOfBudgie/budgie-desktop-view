@@ -155,6 +155,7 @@ public class DesktopArranger : Object {
 		// Only switch profiles when the grid actually changed, e.g. not when the icon theme did
 		if (cols != layout.cols || rows != layout.rows) {
 			layout.activate(cols, rows);
+			canvas.set_grid_size(cols, rows);
 		}
 	}
 

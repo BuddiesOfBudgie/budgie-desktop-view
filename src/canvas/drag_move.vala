@@ -78,16 +78,17 @@ public class DragMove {
 		delta_row = delta_y / cell_height;
 	}
 
-	// snap_targets returns the cell each item would snap to if dropped now
-	public GenericArray<GridPos> snap_targets() {
+	// snap_targets returns the cell each item would snap to if dropped now on a cols x rows grid
+	public GenericArray<GridPos> snap_targets(int cols, int rows) {
 		var targets = new GenericArray<GridPos>();
+		var grid = new LayoutGrid(cols, rows); // Clamps the same way the drop does, so items dragged past an edge show on it
 
 		foreach (DesktopItem item in items) {
 			// While inserting, the items land exactly on their room cells. Otherwise collisions are resolved on drop,
 			// so where they land can differ.
 			GridPos? inserted = room.get(item);
 			GridPos from = item.grid_pos; // Still the pre-drag position; the canvas only moves the widget
-			targets.add(inserted ?? new GridPos(from.col + delta_col, from.row + delta_row).rounded());
+			targets.add(inserted ?? grid.clamp(new GridPos(from.col + delta_col, from.row + delta_row).rounded()));
 		}
 
 		return targets;

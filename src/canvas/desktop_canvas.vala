@@ -27,6 +27,11 @@ public class DesktopCanvas : Gtk.Fixed {
 	// Pixel size of one grid cell; follows the icon size setting
 	public int cell_width { get; private set; default = 1; }
 	public int cell_height { get; private set; default = 1; }
+
+	// Size of the grid in cells; set by the arranger, which works it out from the screen and cell size
+	public int cols { get; private set; default = 1; }
+	public int rows { get; private set; default = 1; }
+
 	public bool snap_to_grid { get; set; default = true; } // Bound to the snap-to-grid setting by the view
 	public DesktopItem? trash_item { get; set; default = null; } // Dropping dragged items on it trashes them instead of moving them
 
@@ -56,9 +61,24 @@ public class DesktopCanvas : Gtk.Fixed {
 			EventMask.SCROLL_MASK | EventMask.SMOOTH_SCROLL_MASK); // Scrolls over items reach us too; they don't select them
 	}
 
+	// Gtk.Fixed asks for room to fit its children, which would stop the window shrinking when a panel takes space back.
+	// The compositor decides our size, so ask for none.
+	public override void get_preferred_width(out int minimum, out int natural) {
+		minimum = natural = 0;
+	}
+
+	public override void get_preferred_height(out int minimum, out int natural) {
+		minimum = natural = 0;
+	}
+
 	public void set_cell_size(int width, int height) {
 		cell_width = int.max(width, 1);
 		cell_height = int.max(height, 1);
+	}
+
+	public void set_grid_size(int cols, int rows) {
+		this.cols = cols;
+		this.rows = rows;
 	}
 
 	public void set_room_func(owned RoomFunc func) {
@@ -583,7 +603,7 @@ public class DesktopCanvas : Gtk.Fixed {
 			ctx.save();
 			ctx.add_class("drop-target");
 
-			GenericArray<GridPos> targets = drag.snap_targets(); // Same order as drag.items
+			GenericArray<GridPos> targets = drag.snap_targets(cols, rows); // Same order as drag.items
 			for (int i = 0; i < targets.length; i++) {
 				Gtk.Allocation alloc;
 				drag.items[i].get_allocation(out alloc);
