@@ -128,6 +128,8 @@ public class DesktopArranger : Object {
 			item.request_show(); // Before placing, since hidden children don't count toward the size place() centers by
 			canvas.place(item, pos);
 		}
+
+		canvas.queue_draw(); // Partial repaints can leave stale pixels of removed items on the transparent window
 	}
 
 	// snap_placements aligns every placed item that sits between cells, updating placements and saving the result.
